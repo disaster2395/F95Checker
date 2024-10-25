@@ -23,6 +23,9 @@ import os
 import io
 import re
 
+from aiohttp_socks import ProxyConnector
+from python_socks import ProxyType
+
 from modules.structs import (
     TimelineEventType,
     MultiProcessPipe,
@@ -34,6 +37,7 @@ from modules.structs import (
     Status,
     Game,
     Os,
+    ProxyType as SettingsProxyType,
 )
 from modules import (
     globals,
@@ -77,7 +81,25 @@ xf_token = ""
 @contextlib.contextmanager
 def setup():
     global session
-    session = aiohttp.ClientSession(loop=async_thread.loop, cookie_jar=aiohttp.DummyCookieJar(loop=async_thread.loop))
+
+    if globals.settings.proxy_type == SettingsProxyType.none:
+        session = aiohttp.ClientSession(loop=async_thread.loop, cookie_jar=aiohttp.DummyCookieJar(loop=async_thread.loop))
+    else:
+        proxy_type = ProxyType.HTTP
+        match globals.settings.proxy_type:
+            case SettingsProxyType.socks4: proxy_type = ProxyType.SOCKS4
+            case SettingsProxyType.socks5: proxy_type = ProxyType.SOCKS5
+            case SettingsProxyType.http: proxy_type = ProxyType.HTTP
+        connector = ProxyConnector(
+            proxy_type=proxy_type,
+            host=globals.settings.proxy_address,
+            port=globals.settings.proxy_port,
+            username=globals.settings.proxy_username,
+            password=globals.settings.proxy_password,
+            loop=async_thread.loop,
+        )
+        session = aiohttp.ClientSession(loop=async_thread.loop, connector=connector)
+
     session.headers["User-Agent"] = f"F95Checker/{globals.version} Python/{sys.version.split(' ')[0]} aiohttp/{aiohttp.__version__}"
     # Setup multiprocessing for parsing threads
     method = "spawn"  # Using fork defeats the purpose, with spawn the main ui does not hang
