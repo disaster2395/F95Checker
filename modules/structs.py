@@ -495,6 +495,14 @@ Category = IntEnumHack("Category", [
 ])
 
 
+ProxyType = IntEnumHack("ProxyType", [
+    ("none",    (1, {"display": "None",     "protocol": ""})),
+    ("socks4",  (2, {"display": "SOCKS4",   "protocol": "socks4"})),
+    ("socks5",  (3, {"display": "SOCKS5",   "protocol": "socks5"})),
+    ("http",    (4, {"display": "HTTP",     "protocol": "http"})),
+])
+
+
 @dataclasses.dataclass(slots=True)
 class Filter:
     mode: FilterMode
@@ -754,6 +762,11 @@ class Settings:
     zoom_area                   : int
     zoom_enabled                : bool
     zoom_times                  : float
+    proxy_type                  : ProxyType
+    proxy_address               : str
+    proxy_port                  : int
+    proxy_username              : str
+    proxy_password              : str
 
     def __post_init__(self):
         if "" in self.default_exe_dir:
