@@ -1,3 +1,8 @@
+from asyncio import Task
+from datetime import datetime
+from typing import Any, Coroutine
+
+import asynciolimiter
 from PyQt6.QtWidgets import QSystemTrayIcon
 import multiprocessing
 import datetime as dt
@@ -73,6 +78,7 @@ part_interval = dt.timedelta(days=2)
 webpage_prefix = "F95Checker-Temp-"
 fast_checks_sem: asyncio.Semaphore = None
 full_checks_sem: asyncio.Semaphore = None
+s429_sem: asyncio.Semaphore = asyncio.Semaphore(1)
 full_checks = CounterContext()
 images = CounterContext()
 xf_token = ""
@@ -588,11 +594,32 @@ async def fast_check(games: list[Game], full_queue: list[tuple[Game, str]]=None,
 
             full_queue.append((game, version))
 
+async def full_check(game: Game, version: str,  limiter: asynciolimiter.Limiter | None = None):
+    result = await full_check_internal(game, version, limiter)
+    if result is not None:
+        await result
 
-async def full_check(game: Game, version: str):
+
+async def full_check_internal(game: Game, version: str, limiter: asynciolimiter.Limiter | None) -> Coroutine | None: # NOSONAR
     async with full_checks, (full_checks_sem or asyncio.Semaphore(1)):
-
+        if limiter:
+            await limiter.wait()
+        if s429_sem.locked():
+            await s429_sem.acquire()
+            s429_sem.release()
         async with request("GET", game.url, timeout=globals.settings.request_timeout * 2) as (res, req):
+            if req.status == 429 and globals.settings.retry_on_429:
+                async with s429_sem:
+                    if globals.debug and globals.logger:
+                        globals.logger.warning(
+                            "[%s] Got 429 error during \"%s\" update, retry in 1 minute, %s game(s) left",
+                            datetime.now().astimezone(),
+                            game.name,
+                            full_checks.count,
+                        )
+                    await asyncio.sleep(60)
+                    return full_check(game, version, limiter)
+
             raise_f95zone_error(res)
             if req.status in (403, 404):
                 if not game.archived:
@@ -1111,14 +1138,22 @@ async def refresh(*games: list[Game], full=False, notifs=True, force_completed=F
     fast_checks_sem = asyncio.Semaphore(globals.settings.refresh_workers)
     full_checks_sem = asyncio.Semaphore(int(max(1, globals.settings.refresh_workers / 10)))
     tasks: list[asyncio.Task] = []
+    limiter = None
     try:
         tasks = [asyncio.create_task(fast_check(chunk, full_queue, full=full)) for chunk in fast_queue]
         await asyncio.gather(*tasks)
-        tasks = [asyncio.create_task(full_check(game, version)) for game, version in full_queue]
+
+        if globals.settings.api_rate_limit == 0 or len(full_queue) < 2:
+            tasks = [asyncio.create_task(full_check(game, version)) for game, version in full_queue]
+        else:
+            limiter = asynciolimiter.Limiter(globals.settings.api_rate_limit / 60.0)
+            tasks = [asyncio.create_task(full_check(game, version, limiter)) for game, version in full_queue]
         await asyncio.gather(*tasks)
     except Exception:
         for task in tasks:
             task.cancel()
+        if limiter:
+            limiter.reset()
         fast_checks_sem = None
         full_checks_sem = None
         raise

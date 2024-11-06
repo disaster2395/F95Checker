@@ -6,6 +6,9 @@ import shutil
 import shlex
 import sys
 import re
+from logging import Logger
+
+import main
 
 version = None
 release = None
@@ -16,9 +19,12 @@ rpc_url = None
 frozen = None
 self_path = None
 debug = None
+logger: Logger | None = None
 def _():
-    global version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
-    from main import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
+    global version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug, logger
+    from main import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path
+
+    debug = bool(int(_os.environ.get("F95DEBUG", 0)))
 
     # Fix frozen load paths
     if frozen:
@@ -43,6 +49,7 @@ def _():
     if debug:
         import logging
         logging.basicConfig()
+        logger = logging.getLogger("f95checker")
 _()
 
 from modules.structs import Browser, Game, OldGame, Os, Settings

@@ -733,6 +733,8 @@ class Settings:
     refresh_completed_games     : bool
     refresh_archived_games      : bool
     refresh_workers             : int
+    api_rate_limit              : int
+    retry_on_429                : bool
     render_when_unfocused       : bool
     request_timeout             : int
     rpc_enabled                 : bool

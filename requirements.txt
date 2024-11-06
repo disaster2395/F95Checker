@@ -14,6 +14,7 @@ async-timeout==4.0.3
 aiosqlite==0.20.0
 aiofiles==24.1.0
 aiohttp==3.10.5
+asynciolimiter==1.1.0.post3.dev69
 
 # BeautifulSoup
 beautifulsoup4==4.12.3

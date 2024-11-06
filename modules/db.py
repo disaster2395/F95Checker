@@ -189,6 +189,8 @@ async def connect():
             "refresh_completed_games":     f'INTEGER DEFAULT {int(True)}',
             "refresh_archived_games":      f'INTEGER DEFAULT {int(True)}',
             "refresh_workers":             f'INTEGER DEFAULT 20',
+            "api_rate_limit":              f'INTEGER DEFAULT 0',
+            "retry_on_429":                f'INTEGER DEFAULT {int(False)}',
             "render_when_unfocused":       f'INTEGER DEFAULT {int(True)}',
             "request_timeout":             f'INTEGER DEFAULT 30',
             "rpc_enabled":                 f'INTEGER DEFAULT {int(True)}',

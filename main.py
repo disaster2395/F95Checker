@@ -7,7 +7,7 @@ import os
 version = "11.0"
 release = False
 build_number = 0
-version_name = f"{version}{'' if release else ' beta'}{'' if release or not build_number else ' ' + str(build_number)}"
+version_name = f"{version}{'' if release else ' beta (blackop mod)'}{'' if release or not build_number else ' ' + str(build_number)}"
 rpc_port = 57095
 rpc_url = f"http://127.0.0.1:{rpc_port}"
 
@@ -19,6 +19,9 @@ if not sys.stdout: sys.stdout = open(os.devnull, "w")
 if not sys.stderr: sys.stderr = open(os.devnull, "w")
 if os.devnull in (sys.stdout.name, sys.stderr.name):
     debug = False
+
+if "F95DEBUG" not in os.environ:
+    os.environ["F95DEBUG"] = str(int(debug))
 
 
 def main():

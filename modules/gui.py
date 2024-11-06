@@ -4774,6 +4774,19 @@ class MainGUI():
             if changed:
                 async_thread.run(db.update_settings("refresh_workers"))
 
+            draw_settings_label("API RPM:", "API rate limiter, requests per minute.\n0 means unlimited")
+            changed, value = imgui.drag_int("###api_rate_limit", set.api_rate_limit, change_speed=1, min_value=0, max_value=5000)
+            set.api_rate_limit = min(max(value, 0), 5000)
+            if changed:
+                set.api_rate_limit = int(value)
+                async_thread.run(db.update_settings("api_rate_limit"))
+
+            draw_settings_label(
+                "Retry on 429:",
+                "If 429 error (too many requests) received during update, game re-update will be scheduled in 1 minute. "
+                "Visually it may look as if update process is stuck.")
+            draw_settings_checkbox("retry_on_429")
+
             draw_settings_label(
                 "Timeout:",
                 "To check for updates for a game F95Checker sends a web request to F95Zone. However this can sometimes go "
