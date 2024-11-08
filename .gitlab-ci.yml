@@ -1,0 +1,102 @@
+variables:
+  FF_USE_FASTZIP: true
+  ARTIFACT_COMPRESSION_LEVEL: fastest
+# ---------------------------------------------------------------------------
+stages:
+  - build
+  - package
+  - deploy
+# ---------------------------------------------------------------------------
+.build:
+  stage: build
+  artifacts:
+    name: artifacts-$PLATFORM
+    access: none
+    expire_in: 30 mins
+    paths:
+      - build/*
+
+.package:
+  stage: package
+  image: crazymax/7zip
+  variables:
+    GIT_STRATEGY: empty
+  script:
+    - cd build/*
+    - 7z a -mx7 ../../F95Checker-$PLATFORM.b-mod.$(date -u +%Y%m%d.%H%M).$CI_COMMIT_SHORT_SHA.zip
+  artifacts:
+    name:
+    expire_in: 30 days
+    paths:
+      - F95Checker-*.zip
+# ---------------------------------------------------------------------------
+build::linux:
+  extends: .build
+  image: python:3.12.7-bullseye
+  cache:
+    key: venv-linux
+    paths:
+      - venv
+  variables:
+    PLATFORM: linux
+  before_script:
+    - if [ ! -d "venv" ]; then python -m venv venv; echo venv was created; else echo venv exist, skip creation; fi
+  script:
+    - source venv/bin/activate
+    - pip install -r requirements-dev.txt $PIP_OPTS
+    - python setup.py build
+    - deactivate
+
+build::windows:
+  extends: .build
+  tags:
+    - windows
+    - python
+  cache:
+    key: venv-windows
+    paths:
+      - venv
+  variables:
+    PLATFORM: windows
+  before_script:
+    - |
+      if (Microsoft.PowerShell.Management\Test-Path -Path venv) {
+        echo venv exist, skip creation
+      } else {
+        python -m venv venv
+        echo venv was created
+      }
+  script:
+    - .\venv\Scripts\Activate.ps1
+    - pip install -r requirements-dev.txt $PIP_OPTS
+    - python setup.py build
+    - deactivate
+# ---------------------------------------------------------------------------
+package::linux:
+  extends: .package
+  variables:
+    PLATFORM: Linux
+  needs:
+    - build::linux
+
+package::windows:
+  extends: .package
+  variables:
+    PLATFORM: Windows
+  needs:
+    - build::windows
+# ---------------------------------------------------------------------------
+deploy:
+  stage: deploy
+  tags:
+    - windows
+  dependencies:
+    - package::linux
+    - package::windows
+  variables:
+    GIT_STRATEGY: empty
+  script:
+    - net use $DEPLOY_PATH /USER:$DEPLOY_USERNAME $DEPLOY_PASSWORD
+    - del $DEPLOY_PATH\$DEPLOY_DIR\*
+    - copy * $DEPLOY_PATH\$DEPLOY_DIR\
+    - net use $DEPLOY_PATH /DELETE
