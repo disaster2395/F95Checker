@@ -951,7 +951,10 @@ class MainGUI():
                         if (count := api.images.count) > 0:
                             text = f"Downloading {count} image{'s' if count > 1 else ''}..."
                         elif (count := api.full_checks.count) > 0:
-                            text = f"Running {count} full recheck{'s' if count > 1 else ''}..."
+                            if not api.s429_sem.locked():
+                                text = f"Running {count} full recheck{'s' if count > 1 else ''}..."
+                            else:
+                                text = f"On pause, {count} full recheck{'s' if count > 1 else ''} left"
                         elif globals.last_update_check is None:
                             text = "Checking for updates..."
                         else:
@@ -3848,7 +3851,7 @@ class MainGUI():
                 text_x = screen_pos.x + (width - text_size.x) / 2
                 text_y = screen_pos.y - text_size.y - 3 * imgui.style.item_spacing.y
                 draw_list.add_text(text_x, text_y, col, text)
-            text = f"{ratio:.0%}"
+            text = f"{ratio:.0%} (429/On Pause)" if api.s429_sem.locked() else f"{ratio:.0%}"
             text_size = imgui.calc_text_size(text)
             text_x = screen_pos.x + (width - text_size.x) / 2
             text_y = screen_pos.y - (height + text_size.y) / 2 - imgui.style.item_spacing.y
