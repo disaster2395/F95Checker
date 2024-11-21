@@ -18,6 +18,8 @@ stages:
 
 .package:
   stage: package
+  tags:
+    - docker
   image: crazymax/7zip
   variables:
     GIT_STRATEGY: empty
@@ -32,6 +34,8 @@ stages:
 # ---------------------------------------------------------------------------
 build::linux:
   extends: .build
+  tags:
+    - docker
   image: python:3.12.7-bullseye
   cache:
     key: venv-linux

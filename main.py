@@ -7,7 +7,7 @@ import sys
 version = "11.0.2"
 release = False
 build_number = 0
-version_name = f"{version}{'' if release else ' beta'}{'' if release or not build_number else ' ' + str(build_number)}"
+version_name = f"{version}{'' if release else ' beta'}{'' if release or not build_number else ' ' + str(build_number)} (b-mod)"
 rpc_port = 57095
 rpc_url = f"http://127.0.0.1:{rpc_port}"
 

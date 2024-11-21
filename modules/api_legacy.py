@@ -2,16 +2,16 @@ import asyncio
 import contextlib
 import datetime as dt
 import json
+import math
 import multiprocessing
 import re
 import socket
 import time
-from typing import Coroutine, Any
+from typing import Coroutine
 
 import aiofiles
 import aiohttp
 import async_timeout
-import asynciolimiter
 
 from common import legacy_parser
 from common.structs import Game, MsgBox, Status, TimelineEventType, MultiProcessPipe, OldGame
@@ -23,7 +23,7 @@ part_interval = dt.timedelta(days=2)
 
 
 @contextlib.asynccontextmanager
-async def request(method: str, url: str, read=True, no_cookies=False, **kwargs):
+async def request(method: str, url: str, read=True, cookies: dict = True, **kwargs):
     timeout = kwargs.pop("timeout", None)
     if not timeout:
         timeout = globals.settings.request_timeout
@@ -34,14 +34,12 @@ async def request(method: str, url: str, read=True, no_cookies=False, **kwargs):
         max_redirects=None,
         ssl=api.ssl_context
     )
-    for insecure_ssl_allowed_host in api.insecure_ssl_allowed_hosts:
-        if url.startswith(insecure_ssl_allowed_host):
-            req_opts["ssl"] = False
-            break
-    if no_cookies:
-        cookies = {}
-    else:
+    if url.startswith(api.insecure_ssl_allowed_hosts):
+        req_opts["ssl"] = False
+    if cookies is True or cookies is None:
         cookies = globals.cookies
+    elif cookies is False:
+        cookies = {}
     ddos_guard_cookies = {}
     ddos_guard_first_challenge = False
     while retries:
@@ -133,10 +131,9 @@ async def fetch(method: str, url: str, **kwargs):
 async def fast_check(games: list[Game], full_queue: list[tuple[Game, str]]=None, full=False):
     games = list(filter(lambda game: not game.custom, games))
 
-    async with api.xenforo_ratelimit, (api.fast_checks_sem or asyncio.Semaphore(1)):
-
+    async with api.f95_ratelimit, (api.fast_checks_sem or asyncio.Semaphore(1)):
         try:
-            res = await fetch("GET", api.f95_fast_check_endpoint.format(threads=",".join(str(game.id) for game in games)), no_cookies=True)
+            res = await fetch("GET", api.f95_fast_check_endpoint.format(threads=",".join(str(game.id) for game in games)), cookies=False)
             api.raise_f95zone_error(res)
             res = json.loads(res)
             if res["msg"] in ("Missing threads data", "Thread not found"):
@@ -204,7 +201,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
         if api.s429_sem.locked():
             await api.s429_sem.acquire()
             api.s429_sem.release()
-        async with api.xenforo_ratelimit, request("GET", game.url, timeout=globals.settings.request_timeout * 2) as (res, req):
+        async with api.f95_ratelimit, request("GET", game.url, timeout=globals.settings.request_timeout * 2) as (res, req):
             if req.status == 429 and globals.settings.retry_on_429:
                 async with api.s429_sem:
                     if globals.debug and globals.logger:
@@ -434,9 +431,8 @@ async def refresh(*games: list[Game], full=False, notifs=True, force_completed=F
     globals.refresh_progress += 1
     globals.refresh_total += sum(len(chunk) for chunk in fast_queue) + bool(notifs)
 
-    # global fast_checks_sem, full_checks_sem
-    api.fast_checks_sem = asyncio.Semaphore(globals.settings.refresh_workers)
-    api.full_checks_sem = asyncio.Semaphore(int(max(1, globals.settings.refresh_workers / 10)))
+    api.fast_checks_sem = asyncio.Semaphore(globals.settings.max_connections)
+    api.full_checks_sem = asyncio.Semaphore(int(max(1, math.floor(globals.settings.max_connections / 10))))
     tasks: list[asyncio.Task] = []
     try:
         tasks = [asyncio.create_task(fast_check(chunk, full_queue, full=full)) for chunk in fast_queue]
