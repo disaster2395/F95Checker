@@ -9,7 +9,9 @@ import itertools
 import pathlib
 import pickle
 import platform
+import re
 import shutil
+import string
 import sys
 import threading
 import time
@@ -50,6 +52,7 @@ from common.structs import (
     Timestamp,
     TrayMsg,
     Type,
+    APIType,
 )
 from common import parser
 from external import (
@@ -970,7 +973,10 @@ class MainGUI():
                         if (count := api.images_counter.count) > 0:
                             text = f"Downloading {count} image{'s' if count > 1 else ''}..."
                         elif (count := api.full_checks_counter.count) > 0:
-                            text = f"Fetching {count} full thread{'s' if count > 1 else ''}..."
+                            if not api.s429_sem.locked():
+                                text = f"Fetching {count} full thread{'s' if count > 1 else ''}..."
+                            else:
+                                text = f"On pause, {count} game{'s' if count > 1 else ''} left"
                         elif (count := api.fast_checks_counter) > 0:
                             text = f"Validating {count} cached item{'s' if count > 1 else ''}..."
                         elif api.f95_ratelimit._waiters or api.f95_ratelimit_sleeping.count:
@@ -3829,7 +3835,7 @@ class MainGUI():
                 text_x = screen_pos.x + (width - text_size.x) / 2
                 text_y = screen_pos.y - text_size.y - 3 * imgui.style.item_spacing.y
                 draw_list.add_text(text_x, text_y, col, text)
-            text = f"{ratio:.0%}"
+            text = f"{ratio:.0%} (429/On Pause)" if api.s429_sem.locked() else f"{ratio:.0%}"
             text_size = imgui.calc_text_size(text)
             text_x = screen_pos.x + (width - text_size.x) / 2
             text_y = screen_pos.y - (height + text_size.y) / 2 - imgui.style.item_spacing.y
@@ -4773,6 +4779,23 @@ class MainGUI():
             imgui.spacing()
 
         if draw_settings_section("Refresh"):
+            if self.add_box_text and re.match("i'?m( a)? rebel!?", self.add_box_text.lower()):
+                draw_settings_label("API Type:", "New WillyJL cached API or original F95 forum")
+                if imgui.begin_combo("###api_type", set.api_type.label):
+                    for api_type in APIType:
+                        selected = api_type is set.api_type
+                        pos = imgui.get_cursor_pos()
+                        if imgui.selectable(f"###api_type{api_type.name}", selected)[0]:
+                            set.api_type = api_type
+                            async_thread.run(db.update_settings("api_type"))
+                            api.make_api_wrapper()
+                        if selected:
+                            imgui.set_item_default_focus()
+                        imgui.set_cursor_pos(pos)
+                        imgui.same_line()
+                        imgui.text(api_type.label)
+                    imgui.end_combo()
+
             draw_settings_label("Check alerts and inbox:")
             draw_settings_checkbox("check_notifs")
 
@@ -4792,6 +4815,28 @@ class MainGUI():
             set.max_connections = min(max(value, 1), 10)
             if changed:
                 async_thread.run(db.update_settings("max_connections"))
+
+            draw_settings_label("API RPM:", "API rate limiter, requests per minute.\n0 means unlimited")
+            changed, value = imgui.drag_int("###api_rate_limit", set.api_rate_limit, change_speed=1, min_value=0, max_value=5000)
+            set.api_rate_limit = min(max(value, 0), 5000)
+            if changed:
+                set.api_rate_limit = int(value)
+                async_thread.run(db.update_settings("api_rate_limit"))
+                api.make_ratelimiter()
+
+            if self.add_box_text and re.match("i'?m( a)? rebel!?", self.add_box_text.lower()):
+                draw_settings_label("API RPM Pause:", "Pause duration on 429 in seconds")
+                changed, value = imgui.drag_int("###api_rate_limit_pause", set.api_rate_limit_pause, change_speed=1, min_value=1, max_value=600)
+                set.api_rate_limit_pause = min(max(value, 0), 5000)
+                if changed:
+                    set.api_rate_limit_pause = int(value)
+                    async_thread.run(db.update_settings("api_rate_limit_pause"))
+
+            draw_settings_label(
+                "Retry on 429:",
+                "If 429 error (too many requests) received during update, game re-update will be scheduled in 1 minute. "
+                "Visually it may look as if update process is stuck.")
+            draw_settings_checkbox("retry_on_429")
 
             draw_settings_label(
                 "Timeout:",
@@ -4829,6 +4874,15 @@ class MainGUI():
 
             draw_settings_label(f"Insecure SSL:")
             draw_settings_checkbox("insecure_ssl")
+
+            draw_settings_label(
+                "Use parser processes:",
+                "Parsing the game threads is an intensive task so when a full recheck is running the interface can stutter a lot. When "
+                "this setting is enabled the thread parsing will be offloaded to dedicated processes that might be (very slightly) slower "
+                "and less stable but that allow the interface to remain fully responsive. It is recommended you keep this enabled unless it "
+                "is causing problems."
+            )
+            draw_settings_checkbox("use_parser_processes")
 
             draw_settings_label(f"Async tasks count: {sum((0 if task.done() else 1) for task in asyncio.all_tasks(loop=async_thread.loop))}")
             imgui.text("")

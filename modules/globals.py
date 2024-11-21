@@ -1,11 +1,12 @@
-from concurrent.futures import Future
-from functools import partial
 import os as _os
 import pathlib
 import re
 import shlex
 import shutil
 import sys
+from concurrent.futures import Future
+from functools import partial
+from logging import Logger
 
 from common.structs import (
     Browser,
@@ -25,9 +26,13 @@ rpc_url = None
 frozen = None
 self_path = None
 debug = None
+logger: Logger | None = None
 def _():
-    global version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
-    from main import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
+    global version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug, logger
+    # noinspection PyUnresolvedReferences
+    from main import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path
+
+    debug = bool(int(_os.environ.get("F95DEBUG", 0)))
 
     # Fix frozen load paths
     if frozen:
@@ -60,6 +65,7 @@ def _():
             None: "raise",
         }
         logging.basicConfig()
+        logger = logging.getLogger("f95checker")
 _()
 
 # Done here to avoid circular import

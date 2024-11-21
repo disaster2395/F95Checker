@@ -39,6 +39,7 @@ from common.structs import (
     Tag,
     TimelineEventType,
     Type,
+    APIType,
 )
 from common import parser
 from external import (
@@ -59,6 +60,7 @@ f95_domain = "f95zone.to"
 f95_host = "https://" + f95_domain
 f95_check_login_fast    = f95_host + "/sam/latest_alpha/"
 f95_login_page          = f95_host + "/login/"
+f95_fast_check_endpoint = f95_host + "/sam/checker.php?threads={threads}"
 f95_notif_endpoint      = f95_host + "/conversations/popup?_xfResponseType=json"
 f95_alerts_page         = f95_host + "/account/alerts/"
 f95_inbox_page          = f95_host + "/conversations/"
@@ -108,10 +110,11 @@ updating = False
 session: aiohttp.ClientSession = None
 ssl_context: ssl.SSLContext = None
 temp_prefix = "F95Checker-Temp-"
-f95_ratelimit = aiolimiter.AsyncLimiter(max_rate=1, time_period=2)
+f95_ratelimit = ...
 f95_ratelimit_sleeping = CounterContext()
 fast_checks_sem: asyncio.Semaphore = None
 full_checks_sem: asyncio.Semaphore = None
+s429_sem: asyncio.Semaphore = asyncio.Semaphore(1)
 fast_checks_counter = 0
 full_checks_counter = CounterContext()
 images_counter = CounterContext()
@@ -154,6 +157,22 @@ def make_session():
 
     if old_session:
         async_thread.wait(old_session.close())
+
+
+def make_ratelimiter():
+    import math
+    global f95_ratelimit
+    if globals.settings.api_rate_limit > 0:
+        divisor = math.gcd(globals.settings.api_rate_limit)
+        if divisor > 1:
+            f95_ratelimit = aiolimiter.AsyncLimiter(
+                max_rate=globals.settings.api_rate_limit / divisor,
+                time_period=60 / divisor,
+            )
+        else:
+            f95_ratelimit = aiolimiter.AsyncLimiter(max_rate=globals.settings.api_rate_limit / 60)
+    else:
+        f95_ratelimit = aiolimiter.AsyncLimiter(max_rate=696969, time_period=1)
 
 
 @contextlib.contextmanager
@@ -1242,7 +1261,10 @@ async def check_updates():
         )
 
 
-async def refresh(*games: list[Game], full=False, notifs=True, force_archived=False, force_completed=False):
+async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=False, force_completed=False):
+    if globals.debug:
+        globals.logger.warning("Run refresh via WillyJL cached API")
+
     fast_queue: list[list[Game]] = [[]]
     for game in (games or globals.games.values()):
         if game.custom:
@@ -1545,3 +1567,163 @@ def open_ddl_popup(game: Game):
         footer="Thanks for supporting F95zone!"
     )
     async_thread.run(_ddl_load_files())
+
+
+refresh = ...
+def make_api_wrapper():
+    global refresh
+    if globals.settings.api_type == APIType.F95:
+        from modules.api_legacy import refresh as _refresh_
+        refresh = _refresh_
+    else:
+        refresh = __refresh
+
+
+ddos_guard_bypass_fake_mark = {
+    "_geo": True,
+    "_sensor": {
+        "gyroscope": False,
+        "accelerometer": False,
+        "magnetometer": False,
+        "absorient": False,
+        "relorient": False
+    },
+    "userAgent": "Linux_x86_64_Gecko_Mozilla_undefined",
+    "webdriver": False,
+    "language": "en-US",
+    "colorDepth": 32,
+    "deviceMemory": "not available",
+    "pixelRatio": 1,
+    "hardwareConcurrency": 12,
+    "screenResolution": [
+        1920,
+        1080
+    ],
+    "availableScreenResolution": [
+        1920,
+        1080
+    ],
+    "timezoneOffset": 240,
+    "timezone": "America/New_York",
+    "sessionStorage": True,
+    "localStorage": True,
+    "indexedDb": True,
+    "addBehavior": False,
+    "openDatabase": False,
+    "cpuClass": "not available",
+    "platform": "Linux x86_64",
+    "doNotTrack": "1",
+    "plugins": [
+        [
+            "PDF Viewer",
+            "Portable Document Format",
+            [
+                [
+                    "application/pdf",
+                    "pdf"
+                ],
+                [
+                    "text/pdf",
+                    "pdf"
+                ]
+            ]
+        ],
+        [
+            "Chrome PDF Viewer",
+            "Portable Document Format",
+            [
+                [
+                    "application/pdf",
+                    "pdf"
+                ],
+                [
+                    "text/pdf",
+                    "pdf"
+                ]
+            ]
+        ],
+        [
+            "Chromium PDF Viewer",
+            "Portable Document Format",
+            [
+                [
+                    "application/pdf",
+                    "pdf"
+                ],
+                [
+                    "text/pdf",
+                    "pdf"
+                ]
+            ]
+        ],
+        [
+            "Microsoft Edge PDF Viewer",
+            "Portable Document Format",
+            [
+                [
+                    "application/pdf",
+                    "pdf"
+                ],
+                [
+                    "text/pdf",
+                    "pdf"
+                ]
+            ]
+        ],
+        [
+            "WebKit built-in PDF",
+            "Portable Document Format",
+            [
+                [
+                    "application/pdf",
+                    "pdf"
+                ],
+                [
+                    "text/pdf",
+                    "pdf"
+                ]
+            ]
+        ]
+    ],
+    "canvas": [],
+    "webgl": False,
+    "adBlock": False,
+    "hasLiedLanguages": False,
+    "hasLiedResolution": False,
+    "hasLiedOs": False,
+    "hasLiedBrowser": False,
+    "touchSupport": [
+        0,
+        False,
+        False
+    ],
+    "fonts": [
+        "Andale Mono",
+        "Arial",
+        "Arial Black",
+        "Bitstream Vera Sans Mono",
+        "Calibri",
+        "Cambria",
+        "Cambria Math",
+        "Comic Sans MS",
+        "Consolas",
+        "Courier",
+        "Courier New",
+        "Georgia",
+        "Helvetica",
+        "Impact",
+        "Lucida Console",
+        "LUCIDA GRANDE",
+        "Lucida Sans Unicode",
+        "Palatino",
+        "Times",
+        "Times New Roman",
+        "Trebuchet MS",
+        "Verdana"
+    ],
+    "audio": "100.00000",
+    "enumerateDevices": [
+        "audioinput;"
+    ],
+    "context": "free_splash"
+}

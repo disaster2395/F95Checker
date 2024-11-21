@@ -30,6 +30,7 @@ from common.structs import (
     TimelineEventType,
     Timestamp,
     Type,
+    APIType,
 )
 from common import parser
 from external import (
@@ -167,6 +168,9 @@ async def connect():
         table_name="settings",
         columns={
             "_":                           f'INTEGER PRIMARY KEY CHECK (_=0)',
+            "api_rate_limit":              f'INTEGER DEFAULT 0',
+            "api_rate_limit_pause":        f'INTEGER DEFAULT 60',
+            "api_type":                    f'INTEGER DEFAULT {APIType.WJL}',
             "background_on_close":         f'INTEGER DEFAULT {int(False)}',
             "bg_notifs_interval":          f'INTEGER DEFAULT 15',
             "bg_refresh_interval":         f'INTEGER DEFAULT 30',
@@ -212,6 +216,7 @@ async def connect():
             "quick_filters":               f'INTEGER DEFAULT {int(True)}',
             "refresh_archived_games":      f'INTEGER DEFAULT {int(True)}',
             "refresh_completed_games":     f'INTEGER DEFAULT {int(True)}',
+            "retry_on_429":                f'INTEGER DEFAULT {int(False)}',
             "render_when_unfocused":       f'INTEGER DEFAULT {int(True)}',
             "request_timeout":             f'INTEGER DEFAULT 30',
             "rpc_enabled":                 f'INTEGER DEFAULT {int(True)}',
@@ -235,6 +240,7 @@ async def connect():
             "style_text_dim":              f'TEXT    DEFAULT "{DefaultStyle.text_dim}"',
             "tags_highlights":             f'TEXT    DEFAULT "{{}}"',
             "timestamp_format":            f'TEXT    DEFAULT "%d/%m/%Y %H:%M"',
+            "use_parser_processes":        f'INTEGER DEFAULT {int(True)}',
             "vsync_ratio":                 f'INTEGER DEFAULT 1',
             "weighted_score":              f'INTEGER DEFAULT {int(False)}',
             "zoom_area":                   f'INTEGER DEFAULT 50',

@@ -20,6 +20,9 @@ if not sys.stderr: sys.stderr = open(os.devnull, "w")
 if os.devnull in (sys.stdout.name, sys.stderr.name):
     debug = False
 
+if "F95DEBUG" not in os.environ:
+    os.environ["F95DEBUG"] = str(int(debug))
+
 
 def main():
     # Must import globals first to fix load paths when frozen
@@ -40,6 +43,8 @@ def main():
 
     from modules import api, db
     with db.setup(), api.setup():
+        api.make_api_wrapper()
+        api.make_ratelimiter()
 
         from modules import gui
         globals.gui = gui.MainGUI()

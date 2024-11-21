@@ -5,8 +5,11 @@ import enum
 import functools
 import hashlib
 import json
+import multiprocessing.queues
+import multiprocessing
 import os
 import pathlib
+import queue
 import time
 import typing
 import weakref
@@ -81,6 +84,36 @@ class DaemonProcess:
 
     def __exit__(self, *_):
         self.finalize()
+
+
+class MultiProcessPipe(multiprocessing.queues.Queue):  # Unused
+    __slots__ = ("proc", "daemon",)
+
+    def __init__(self):
+        super().__init__(0, ctx=multiprocessing.get_context())
+
+    def __call__(self, proc: multiprocessing.Process):
+        self.proc = proc
+        self.daemon = DaemonProcess(proc)
+        return self
+
+    async def get_async(self, poll_rate=0.1):
+        while self.proc.is_alive():
+            try:
+                return self.get_nowait()
+            except queue.Empty:
+                await asyncio.sleep(poll_rate)
+        return self.get_nowait()
+
+    def __enter__(self):
+        self.proc.start()
+        self.daemon.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.daemon.__exit__()
+        if exc_type is queue.Empty:
+            return True
 
 
 class DaemonPipe:
@@ -521,6 +554,11 @@ ProxyType = IntEnumHack("ProxyType", [
     ("HTTP",     4),
 ])
 
+APIType = IntEnumHack("APIType", [
+    ("WJL", (1, {"label": "WillyJL API"})),
+    ("F95", (2, {"label": "Forum (F95.to)"})),
+])
+
 
 @dataclasses.dataclass(slots=True)
 class Filter:
@@ -701,6 +739,9 @@ Browser.add("Custom", -1)
 
 @dataclasses.dataclass(slots=True)
 class Settings:
+    api_rate_limit              : int
+    api_rate_limit_pause        : int
+    api_type                    : APIType
     background_on_close         : bool
     bg_notifs_interval          : int
     bg_refresh_interval         : int
@@ -738,16 +779,17 @@ class Settings:
     mark_installed_after_add    : bool
     max_connections             : int
     max_retries                 : int
-    proxy_type                  : ProxyType
     proxy_host                  : str
-    proxy_port                  : int
-    proxy_username              : str
     proxy_password              : str
+    proxy_port                  : int
+    proxy_type                  : ProxyType
+    proxy_username              : str
     quick_filters               : bool
     refresh_archived_games      : bool
     refresh_completed_games     : bool
     render_when_unfocused       : bool
     request_timeout             : int
+    retry_on_429                : bool
     rpc_enabled                 : bool
     rpdl_password               : str
     rpdl_token                  : str
@@ -769,6 +811,7 @@ class Settings:
     style_text_dim              : tuple[float]
     tags_highlights             : dict[Tag, TagHighlight]
     timestamp_format            : str
+    use_parser_processes        : bool
     vsync_ratio                 : int
     weighted_score              : bool
     zoom_area                   : int
