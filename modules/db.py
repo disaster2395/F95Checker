@@ -169,7 +169,7 @@ async def connect():
         columns={
             "_":                           f'INTEGER PRIMARY KEY CHECK (_=0)',
             "api_rate_limit":              f'INTEGER DEFAULT 0',
-            "api_rate_limit_pause":        f'INTEGER DEFAULT 60',
+            "pause_on_429":                f'INTEGER DEFAULT 60',
             "api_type":                    f'INTEGER DEFAULT {APIType.WJL}',
             "background_on_close":         f'INTEGER DEFAULT {int(False)}',
             "bg_notifs_interval":          f'INTEGER DEFAULT 15',

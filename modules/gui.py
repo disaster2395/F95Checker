@@ -4824,19 +4824,19 @@ class MainGUI():
                 async_thread.run(db.update_settings("api_rate_limit"))
                 api.make_ratelimiter()
 
-            if self.add_box_text and re.match("i'?m( a)? rebel!?", self.add_box_text.lower()):
-                draw_settings_label("API RPM Pause:", "Pause duration on 429 in seconds")
-                changed, value = imgui.drag_int("###api_rate_limit_pause", set.api_rate_limit_pause, change_speed=1, min_value=1, max_value=600)
-                set.api_rate_limit_pause = min(max(value, 0), 5000)
-                if changed:
-                    set.api_rate_limit_pause = int(value)
-                    async_thread.run(db.update_settings("api_rate_limit_pause"))
-
             draw_settings_label(
                 "Retry on 429:",
                 "If 429 error (too many requests) received during update, game re-update will be scheduled in 1 minute. "
                 "Visually it may look as if update process is stuck.")
             draw_settings_checkbox("retry_on_429")
+
+            if self.add_box_text and re.match("i'?m( a)? rebel!?", self.add_box_text.lower()):
+                draw_settings_label("Pause on 429:", "Pause duration on 429 in seconds")
+                changed, value = imgui.drag_int("###pause_on_429", set.pause_on_429, change_speed=1, min_value=1, max_value=600)
+                set.pause_on_429 = min(max(value, 1), 5000)
+                if changed:
+                    set.pause_on_429 = int(value)
+                    async_thread.run(db.update_settings("pause_on_429"))
 
             draw_settings_label(
                 "Timeout:",

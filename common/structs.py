@@ -740,7 +740,7 @@ Browser.add("Custom", -1)
 @dataclasses.dataclass(slots=True)
 class Settings:
     api_rate_limit              : int
-    api_rate_limit_pause        : int
+    pause_on_429        : int
     api_type                    : APIType
     background_on_close         : bool
     bg_notifs_interval          : int

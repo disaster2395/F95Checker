@@ -214,7 +214,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
                             game.name,
                             api.full_checks_counter.count,
                         )
-                    await asyncio.sleep(globals.settings.api_rate_limit_pause)
+                    await asyncio.sleep(globals.settings.pause_on_429)
                     return full_check(game, version)
 
             api.raise_f95zone_error(res)
