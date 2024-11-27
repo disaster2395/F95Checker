@@ -54,6 +54,7 @@ async def watch_updates():
 
                 cached_versions = cache.redis.pipeline()
 
+                logger.info("Before GET")
                 async with f95zone.session.get(
                     f95zone.LATEST_URL.format(
                         cmd="list",
@@ -65,11 +66,14 @@ async def watch_updates():
                     ),
                     cookies=f95zone.cookies,
                 ) as req:
+                    logger.info("Before read")
                     res = await req.read()
 
+                logger.info("Before error check")
                 if index_error := f95zone.check_error(res):
                     raise Exception(index_error.error_flag)
 
+                logger.info("Before JSON")
                 try:
                     updates = json.loads(res)
                 except Exception:
@@ -77,6 +81,7 @@ async def watch_updates():
                 if updates["status"] != "ok":
                     raise Exception(f"Latest updates returned an error: {updates}")
 
+                logger.info("Before parse")
                 names = []
                 versions = []
                 for update in updates["msg"]["data"]:
@@ -85,8 +90,10 @@ async def watch_updates():
                     cached_versions.hget(name, "version")
                     versions.append(update["version"])
 
+                logger.info("Before cached_versions execute")
                 cached_versions = await cached_versions.execute()
 
+                logger.info("Before version compare")
                 assert len(names) == len(versions) == len(cached_versions)
                 for name, version, cached_version in zip(
                     names, versions, cached_versions
@@ -104,6 +111,7 @@ async def watch_updates():
                             f" ({cached_version!r} -> {version!r})"
                         )
 
+            logger.info("Before invalidate_cache execute")
             if len(invalidate_cache):
                 result = await invalidate_cache.execute()
                 invalidated = sum(ret != "0" for ret in result)
