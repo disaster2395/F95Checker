@@ -301,7 +301,7 @@ def thread(res: bytes) -> ParsedThread | ParserError:
             status = Status.Normal
 
         last_updated = 0
-        text = get_game_attr("thread updated", "updated", "release date").replace("/", "-")
+        text = get_game_attr("release date", "thread updated", "updated").replace("/", "-").replace(" ", "")
         try:
             last_updated = dt.datetime.fromisoformat(text).timestamp()
         except ValueError:
