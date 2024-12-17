@@ -4,7 +4,15 @@ import os
 import pathlib
 import sys
 
+def mod_version(original_version) -> str:
+    version_parts = original_version.split(".")
+    while len(version_parts) < 3:
+        version_parts.append("0")
+    version_parts[2] = str(int(version_parts[2]) + 1)
+    return ".".join(version_parts)
+
 version = "11.0.2"
+version = mod_version(version)
 release = False
 build_number = 0
 version_name = f"{version}{'' if release else ' beta'}{'' if release or not build_number else ' ' + str(build_number)} (b-mod)"

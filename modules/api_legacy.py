@@ -11,7 +11,6 @@ from typing import Coroutine
 
 import aiofiles
 import aiohttp
-import async_timeout
 
 from common import legacy_parser
 from common.structs import Game, MsgBox, Status, TimelineEventType, MultiProcessPipe, OldGame
@@ -249,7 +248,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             # Using multiprocessing can help with interface stutters
             with (pipe := MultiProcessPipe())(multiprocessing.Process(target=parse, args=(*args, pipe))):
                 try:
-                    async with async_timeout.timeout(globals.settings.request_timeout):
+                    async with asyncio.timeout(globals.settings.request_timeout):
                         ret = await pipe.get_async()
                 except TimeoutError:
                     raise msgbox.Exc(
