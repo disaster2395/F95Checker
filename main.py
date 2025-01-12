@@ -11,7 +11,7 @@ def mod_version(original_version) -> str:
     version_parts[2] = str(int(version_parts[2]) + 1)
     return ".".join(version_parts)
 
-version = "11.0.2"
+version = "11.1"
 version = mod_version(version)
 release = False
 build_number = 0
