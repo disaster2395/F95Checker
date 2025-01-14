@@ -342,6 +342,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             game.unknown_tags_flag = unknown_tags_flag
             if fetch_image:
                 game.image_url = ret.image_url
+            game.previews_urls = ret.previews_urls
             game.downloads = ret.downloads
 
             changed_name = ret.name != old_name

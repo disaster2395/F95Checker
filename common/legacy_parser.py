@@ -32,6 +32,7 @@ ParsedThread = collections.namedtuple("ParsedThread", [
     "tags",
     "unknown_tags",
     "image_url",
+    "previews_urls",
     "downloads",
 ])
 
@@ -381,6 +382,14 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
 
         downloads = get_game_downloads("downloads", "download")
 
+        # previews
+        preview_elems = (
+            post
+            .find(is_class("bbWrapper"))
+            .find_all(lambda elem: elem.name == "img" and "data-src" in elem.attrs and "class" in elem.attrs and "bbImage" in elem.attrs["class"])
+        )
+        preview_urls = [elem.get("data-src").replace("/thumb/", "/") for elem in preview_elems if elem.parent.name == "a"] if preview_elems else []
+
     except Exception:
         e = ParserException(
             "Thread parsing error",
@@ -408,6 +417,7 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
         tags=tags,
         unknown_tags=unknown_tags,
         image_url=image_url,
+        previews_urls=preview_urls,
         downloads=downloads,
     )
     if pipe:
