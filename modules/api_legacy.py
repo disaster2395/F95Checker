@@ -340,7 +340,8 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             game.tags = ret.tags
             game.unknown_tags = ret.unknown_tags
             game.unknown_tags_flag = unknown_tags_flag
-            game.image_url = ret.image_url
+            if fetch_image:
+                game.image_url = ret.image_url
             game.downloads = ret.downloads
 
             changed_name = ret.name != old_name
@@ -366,22 +367,22 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
                 )
                 globals.updated_games[game.id] = old_game
 
-        if fetch_image and game.image_url and game.image_url.startswith("http"):
+        if fetch_image and ret.image_url and ret.image_url.startswith("http"):
             with api.images_counter:
                 try:
-                    res = await fetch("GET", game.image_url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
+                    res = await fetch("GET", ret.image_url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
                 except aiohttp.ClientResponseError as exc:
                     if exc.status < 400:
                         raise  # Not error status
-                    if game.image_url.startswith("https://i.imgur.com"):
-                        game.image_url = "blocked"
+                    if ret.image_url.startswith("https://i.imgur.com"):
+                        ret.image_url = "blocked"
                     else:
-                        game.image_url = "dead"
+                        ret.image_url = "dead"
                     res = b""
                 except aiohttp.ClientConnectorError as exc:
                     if not isinstance(exc.os_error, socket.gaierror):
                         raise  # Not a dead link
-                    if api.is_f95zone_url(game.image_url):
+                    if api.is_f95zone_url(ret.image_url):
                         raise  # Not a foreign host, raise normal connection error message
                     f95zone_ok = True
                     foreign_ok = True
@@ -394,7 +395,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
                     except Exception:
                         foreign_ok = False
                     if f95zone_ok and not foreign_ok:
-                        game.image_url = "dead"
+                        ret.image_url = "dead"
                         res = b""
                     else:
                         raise  # Foreign host might not actually be dead
