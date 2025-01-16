@@ -777,6 +777,7 @@ class Settings:
     last_successful_refresh     : Timestamp
     manual_sort_list            : list[int]
     mark_installed_after_add    : bool
+    mark_updated_archived_games : bool
     max_connections             : int
     max_retries                 : int
     proxy_host                  : str

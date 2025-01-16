@@ -206,6 +206,7 @@ async def connect():
             "last_successful_refresh":     f'INTEGER DEFAULT 0',
             "manual_sort_list":            f'TEXT    DEFAULT "[]"',
             "mark_installed_after_add":    f'INTEGER DEFAULT {int(False)}',
+            "mark_updated_archived_games": f'INTEGER DEFAULT {int(False)}',
             "max_connections":             f'INTEGER DEFAULT 10',
             "max_retries":                 f'INTEGER DEFAULT 2',
             "proxy_type":                  f'INTEGER DEFAULT {ProxyType.Disabled}',

@@ -4807,6 +4807,9 @@ class MainGUI():
             draw_settings_label("Refresh if completed:")
             draw_settings_checkbox("refresh_completed_games")
 
+            draw_settings_label("Mark updated if archived:")
+            draw_settings_checkbox("mark_updated_archived_games")
+
             draw_settings_label(
                 "Connections:",
                 "Games are checked 10 at a time for updates, and of those only those with new data are fetched for all game "

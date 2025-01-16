@@ -305,7 +305,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             old_version = version  # Don't include version change in popup for simple parsing adjustments
         else:
             if version != old_version:
-                if not game.archived:
+                if not game.archived or globals.settings.mark_updated_archived_games:
                     updated = True
 
         # Don't include name change in popup for simple parsing adjustments
