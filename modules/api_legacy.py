@@ -9,7 +9,6 @@ import socket
 import time
 from typing import Coroutine
 
-import aiofiles
 import aiohttp
 
 from common import legacy_parser
@@ -141,20 +140,17 @@ async def fast_check(games: list[Game], full_queue: list[tuple[Game, str]]=None,
             api.raise_f95zone_error(res)
             versions = res["msg"]
         except Exception as exc:
-            if isinstance(exc, msgbox.Exc):
+            if isinstance(exc, msgbox.Exc) or not res:
                 raise exc
-            async with aiofiles.open(globals.self_path / "check_broken.bin", "wb") as f:
-                await f.write(json.dumps(res).encode() if isinstance(res, (dict, list)) else res)
             raise msgbox.Exc(
                 "Fast check error",
                 "Something went wrong checking some of your games:\n"
                 f"{error.text()}\n"
                 "\n"
-                "The response body has been saved to:\n"
-                f"{globals.self_path / 'check_broken.bin'}\n"
-                "Please submit a bug report on F95Zone or GitHub including this file.",
+                "Click below to see the response body and traceback.\n"
+                "Please submit a bug report on F95zone or GitHub including these.",
                 MsgBox.error,
-                more=error.traceback()
+                more=f"Response body:\n{str(res)[:10000]}\n\n{error.traceback()}",
             )
 
         for game in games:
