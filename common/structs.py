@@ -10,10 +10,13 @@ import multiprocessing
 import os
 import pathlib
 import queue
+import shutil
+import sys
 import time
 import typing
 import weakref
 
+from external import weakerset
 from modules import colors
 
 
@@ -116,7 +119,18 @@ class MultiProcessPipe(multiprocessing.queues.Queue):  # Unused
             return True
 
 
-class DaemonPipe:
+class AbstractPipe:
+    def __init__(self):
+        raise NotImplementedError()
+
+    async def get_async(self):
+        raise NotImplementedError()
+
+    def put(self, data: dict | list | str):
+        raise NotImplementedError()
+
+
+class DaemonPipe(AbstractPipe):
     __slots__ = ("proc", "daemon",)
 
     class DaemonPipeExit(Exception):
@@ -127,12 +141,21 @@ class DaemonPipe:
         self.daemon = DaemonProcess(proc)
 
     async def get_async(self):
+        assert self.proc.stdout
         while self.proc.returncode is None and not self.proc.stdout.at_eof():
+            line = await self.proc.stdout.readline()
             try:
-                return json.loads(await self.proc.stdout.readline())
+                return json.loads(line)
             except json.JSONDecodeError:
                 pass
             await asyncio.sleep(0)
+        raise self.DaemonPipeExit()
+
+    def put(self, data: dict | list | str):
+        assert self.proc.stdin
+        if self.proc.returncode is None:
+            self.proc.stdin.write(json.dumps(data).encode() + b"\n")
+            return
         raise self.DaemonPipeExit()
 
     def __enter__(self):
@@ -144,9 +167,56 @@ class DaemonPipe:
         if exc_type is self.DaemonPipeExit:
             return True
 
+    def kill(self):
+        self.daemon.__exit__()
+
+
+class ChildPipe(AbstractPipe):
+    __slots__ = ("loop", "stdin_event")
+
+    def __init__(self):
+        try:
+            self.loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.loop = None
+
+        if self.loop and sys.stdin:
+            self.stdin_event = asyncio.Event()
+            try:
+                self.loop.add_reader(sys.stdin, self.stdin_event.set)
+            except NotImplementedError:
+                self.stdin_event = None
+
+    async def get(self):
+        assert sys.stdin
+        while True:
+            line = sys.stdin.readline()
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                pass
+
+    async def get_async(self):
+        assert sys.stdin
+        assert self.loop
+        while True:
+            if self.stdin_event:
+                await self.stdin_event.wait()
+                self.stdin_event.clear()
+            line = await self.loop.run_in_executor(None, sys.stdin.readline)
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                pass
+            await asyncio.sleep(0)
+
+    def put(self, data: dict | list | str):
+        assert sys.stdout
+        print(json.dumps(data), flush=True)
+
 
 class Timestamp:
-    instances = weakref.WeakSet()
+    instances = weakerset.WeakerSet()
 
     __slots__ = ("value", "_display", "__weakref__",)
 
@@ -178,7 +248,7 @@ class Timestamp:
 
 
 class Datestamp(Timestamp):
-    instances = weakref.WeakSet()
+    instances = weakerset.WeakerSet()
 
     __slots__ = ()
 
@@ -273,6 +343,8 @@ class FileDownload:
         Verifying = enum.auto()
         Extracting = enum.auto()
         Stopped = enum.auto()
+        Deleting = enum.auto()
+        Removed = enum.auto()
 
     cancel: bool = False
     state: State = State.Preparing
@@ -280,26 +352,23 @@ class FileDownload:
     error: str = None
     traceback: str = None
 
+    async def delete(self):
+        assert self.state == self.State.Stopped
+        self.state = self.State.Deleting
+        try:
+            loop = asyncio.get_event_loop()
+            if self.extracted:
+                await loop.run_in_executor(None, functools.partial(shutil.rmtree, self.extracted, ignore_errors=True))
+            await loop.run_in_executor(None, functools.partial(self.path.unlink, missing_ok=True))
+        except Exception:
+            pass
+        self.state = self.State.Removed
+
 
 @dataclasses.dataclass(slots=True)
 class SortSpec:
     index: int
     reverse: bool
-
-
-@dataclasses.dataclass(slots=True)
-class TrayMsg:
-    title: str
-    msg: str
-    icon: "PyQt6.QtWidgets.QSystemTrayIcon.MessageIcon"
-
-    def __post_init__(self):
-        # KDE Plasma for some reason doesn't dispatch clicks if the icon is not critical
-        if os.environ.get("DESKTOP_SESSION") == "plasma" or \
-        os.environ.get("XDG_SESSION_DESKTOP") == "KDE" or \
-        os.environ.get("XDG_CURRENT_DESKTOP") == "KDE":
-            from PyQt6.QtWidgets import QSystemTrayIcon
-            self.icon = QSystemTrayIcon.MessageIcon.Critical
 
 
 class IntEnumHack(enum.IntEnum):
@@ -325,6 +394,12 @@ Os = IntEnumHack("Os", [
     ("Windows", 1),
     ("Linux",   2),
     ("MacOS",   3),
+])
+
+
+APIType = IntEnumHack("APIType", [
+    ("WJL", (1, {"label": "WillyJL API"})),
+    ("F95", (2, {"label": "Forum (F95.to)"})),
 ])
 
 
@@ -554,9 +629,11 @@ ProxyType = IntEnumHack("ProxyType", [
     ("HTTP",     4),
 ])
 
-APIType = IntEnumHack("APIType", [
-    ("WJL", (1, {"label": "WillyJL API"})),
-    ("F95", (2, {"label": "Forum (F95.to)"})),
+
+TexCompress = IntEnumHack("TexCompress", [
+    ("Disabled", 1),
+    ("ASTC",     2),
+    ("BC7",      3),
 ])
 
 
@@ -780,6 +857,9 @@ class Settings:
     mark_updated_archived_games : bool
     max_connections             : int
     max_retries                 : int
+    notifs_show_update_banner   : bool
+    play_gifs                   : bool
+    play_gifs_unfocused         : bool
     proxy_host                  : str
     proxy_password              : str
     proxy_port                  : int
@@ -810,8 +890,12 @@ class Settings:
     style_corner_radius         : int
     style_text                  : tuple[float]
     style_text_dim              : tuple[float]
+    table_header_outside_list   : bool
     tags_highlights             : dict[Tag, TagHighlight]
+    tex_compress                : TexCompress
+    tex_compress_replace        : bool
     timestamp_format            : str
+    unload_offscreen_images     : bool
     use_parser_processes        : bool
     vsync_ratio                 : int
     weighted_score              : bool
@@ -930,8 +1014,7 @@ class Game:
 
     def refresh_image(self):
         self.image.glob = f"{self.id}.*"
-        self.image.loaded = False
-        self.image.resolve()
+        self.image.reload()
 
     async def set_image_async(self, data: bytes):
         from modules import globals, utils

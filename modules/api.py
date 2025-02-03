@@ -17,11 +17,11 @@ import tempfile
 import time
 import zipfile
 
-from PyQt6.QtWidgets import QSystemTrayIcon
 import aiofiles
 import aiohttp
 import aiohttp_socks
 import aiolimiter
+import desktop_notifier
 import imgui
 import python_socks
 
@@ -52,6 +52,7 @@ from modules import (
     globals,
     icons,
     msgbox,
+    notification_proc,
     utils,
     webview,
 )
@@ -189,9 +190,12 @@ def setup():
         ca_paths = None
     elif globals.os is Os.Linux:
         ca_paths = (
-            "/etc/ssl/certs/ca-certificates.crt",  # Ubuntu / Common
-            "/etc/pki/tls/certs/ca-bundle.crt",  # Fedora
-            "/etc/ssl/cert.pem",  # Alias
+            "/etc/ssl/certs/ca-certificates.crt",                 # Debian/Ubuntu/Gentoo etc.
+            "/etc/pki/tls/certs/ca-bundle.crt",                   # Fedora/RHEL 6
+            "/etc/ssl/ca-bundle.pem",                             # OpenSUSE
+            "/etc/pki/tls/cacert.pem",                            # OpenELEC
+            "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",  # CentOS/RHEL 7
+            "/etc/ssl/cert.pem",                                  # Alpine Linux
         )
     elif globals.os is Os.MacOS:
         ca_paths = (
@@ -725,7 +729,7 @@ async def fast_check(games: list[Game], full=False):
         this_full = full or (
             game.status is Status.Unchecked or
             last_changed > game.last_full_check or
-            (game.image.missing and game.image_url.startswith("http")) or
+            (game.image.missing and (game.image_url.startswith("http") or not game.image_url)) or
             last_check_before("10.1.1", game.last_check_version)  # Switch away from HEAD requests, new version parsing
         )
         if not this_full:
@@ -897,7 +901,7 @@ async def full_check(game: Game, last_changed: int):
                     version=old_version,
                     status=old_status,
                 )
-                globals.updated_games[game.id] = old_game
+                globals.new_updated_games[game.id] = old_game
 
         if fetch_image and thread["image_url"] and thread["image_url"].startswith("http"):
             with images_counter:
@@ -985,16 +989,18 @@ async def check_notifs(standalone=True, retry=False):
             globals.popup_stack.remove(popup)
     if alerts != 0 and inbox != 0:
         msg = (
-            f"You have {alerts + inbox} unread notifications.\n"
-            f"({alerts} alert{'s' if alerts > 1 else ''} and {inbox} conversation{'s' if inbox > 1 else ''})\n"
+            f"You have {alerts + inbox} unread notifications!\n"
+            f"({alerts} alert{'s' if alerts > 1 else ''} and {inbox} conversation{'s' if inbox > 1 else ''})"
         )
     elif alerts != 0 and inbox == 0:
-        msg = f"You have {alerts} unread alert{'s' if alerts > 1 else ''}.\n"
+        msg = f"You have {alerts} unread alert{'s' if alerts > 1 else ''}!"
     elif alerts == 0 and inbox != 0:
-        msg = f"You have {inbox} unread conversation{'s' if inbox > 1 else ''}.\n"
+        msg = f"You have {inbox} unread conversation{'s' if inbox > 1 else ''}!"
     else:
         return
+    popup = None
     def open_callback():
+        popup.open = False
         if alerts > 0:
             callbacks.open_webpage(f95_alerts_page)
         if inbox > 0:
@@ -1003,19 +1009,24 @@ async def check_notifs(standalone=True, retry=False):
         f"{icons.check} Yes": open_callback,
         f"{icons.cancel} No": None
     }
-    utils.push_popup(
+    popup = utils.push_popup(
         msgbox.msgbox, "Notifications",
         msg +
-        "\n"
+        "\n\n"
         f"Do you want to view {'them' if (alerts + inbox) > 1 else 'it'}?",
         MsgBox.info, buttons
     )
     if globals.gui.hidden or not globals.gui.focused:
-        globals.gui.tray.push_msg(
+        notification_proc.notify(
             title="Notifications",
-            msg=msg +
-                "Click here to view them.",
-            icon=QSystemTrayIcon.MessageIcon.Information)
+            msg=msg,
+            buttons=[
+                desktop_notifier.Button(
+                    title="Open in Browser",
+                    on_pressed=open_callback,
+                ),
+            ]
+        )
 
 
 async def check_updates():
@@ -1244,11 +1255,9 @@ async def check_updates():
         bottom=True
     )
     if globals.gui.hidden or not globals.gui.focused:
-        globals.gui.tray.push_msg(
+        notification_proc.notify(
             title="F95Checker update",
-            msg="F95Checker has received an update.\n"
-                "Click here to view it.",
-            icon=QSystemTrayIcon.MessageIcon.Information
+            msg="F95Checker has received an update!",
         )
 
 
@@ -1260,10 +1269,11 @@ async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=
     for game in (games or globals.games.values()):
         if game.custom:
             continue
-        if not games and game.archived and not globals.settings.refresh_archived_games and not force_archived:
-            continue
-        if not games and game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
-            continue
+        if not game.image.missing:
+            if not games and game.archived and not globals.settings.refresh_archived_games and not force_archived:
+                continue
+            if not games and game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
+                continue
         if len(fast_queue[-1]) == api_fast_check_max_ids:
             fast_queue.append([])
         fast_queue[-1].append(game)

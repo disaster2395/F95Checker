@@ -14,6 +14,7 @@ import typing
 import aiosqlite
 
 from common.structs import (
+    APIType,
     Browser,
     DefaultStyle,
     DisplayMode,
@@ -25,12 +26,12 @@ from common.structs import (
     Settings,
     Status,
     Tab,
+    TexCompress,
     ThreadMatch,
     TimelineEvent,
     TimelineEventType,
     Timestamp,
     Type,
-    APIType,
 )
 from common import parser
 from external import (
@@ -169,7 +170,6 @@ async def connect():
         columns={
             "_":                           f'INTEGER PRIMARY KEY CHECK (_=0)',
             "api_rate_limit":              f'INTEGER DEFAULT 0',
-            "pause_on_429":                f'INTEGER DEFAULT 60',
             "api_type":                    f'INTEGER DEFAULT {APIType.WJL}',
             "background_on_close":         f'INTEGER DEFAULT {int(False)}',
             "bg_notifs_interval":          f'INTEGER DEFAULT 15',
@@ -209,6 +209,10 @@ async def connect():
             "mark_updated_archived_games": f'INTEGER DEFAULT {int(False)}',
             "max_connections":             f'INTEGER DEFAULT 10',
             "max_retries":                 f'INTEGER DEFAULT 2',
+            "notifs_show_update_banner":   f'INTEGER DEFAULT {int(True)}',
+            "pause_on_429":                f'INTEGER DEFAULT 60',
+            "play_gifs":                   f'INTEGER DEFAULT {int(True)}',
+            "play_gifs_unfocused":         f'INTEGER DEFAULT {int(False)}',
             "proxy_type":                  f'INTEGER DEFAULT {ProxyType.Disabled}',
             "proxy_host":                  f'TEXT    DEFAULT ""',
             "proxy_port":                  f'INTEGER DEFAULT 8080',
@@ -239,8 +243,12 @@ async def connect():
             "style_corner_radius":         f'INTEGER DEFAULT {DefaultStyle.corner_radius}',
             "style_text":                  f'TEXT    DEFAULT "{DefaultStyle.text}"',
             "style_text_dim":              f'TEXT    DEFAULT "{DefaultStyle.text_dim}"',
+            "table_header_outside_list":   f'INTEGER DEFAULT {int(True)}',
             "tags_highlights":             f'TEXT    DEFAULT "{{}}"',
+            "tex_compress":                f'INTEGER DEFAULT {TexCompress.Disabled}',
+            "tex_compress_replace":        f'INTEGER DEFAULT {int(False)}',
             "timestamp_format":            f'TEXT    DEFAULT "%d/%m/%Y %H:%M"',
+            "unload_offscreen_images":     f'INTEGER DEFAULT {int(False)}',
             "use_parser_processes":        f'INTEGER DEFAULT {int(True)}',
             "vsync_ratio":                 f'INTEGER DEFAULT 1',
             "weighted_score":              f'INTEGER DEFAULT {int(False)}',
@@ -519,14 +527,11 @@ async def update_game_id(game: Game, new_id):
     for event in game.timeline_events:
         event.game_id = new_id
 
-    for i, img in enumerate(sorted(list(globals.images_path.glob(f"{game.id}.*")), key=lambda path: path.suffix != ".gif")):
-        if i == 0:
-            shutil.move(img, globals.images_path / f"{new_id}{img.suffix}")
-        else:
-            try:
-                img.unlink()
-            except Exception:
-                pass
+    for img in globals.images_path.glob(f"{game.id}.*"):
+        try:
+            shutil.move(img, img.with_name(f"{new_id}{''.join(img.suffixes)}"))
+        except Exception:
+            pass
     game.id = new_id
     game.refresh_image()
 
