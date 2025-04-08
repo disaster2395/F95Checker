@@ -274,7 +274,8 @@ class MainGUI():
             imgui.WINDOW_NO_SCROLL_WITH_MOUSE
         )
         self.tabbar_flags: int = (
-            imgui.TAB_BAR_FITTING_POLICY_SCROLL
+            imgui.TAB_BAR_FITTING_POLICY_SCROLL |
+            imgui.TAB_BAR_REORDERABLE
         )
         self.game_list_table_flags: int = (
             imgui.TABLE_SCROLL_Y |
@@ -918,6 +919,7 @@ class MainGUI():
                         draw_next = max(draw_next, imgui.io.delta_time + 1.0)  # Draw for at least next half second
                     if draw_next > 0.0:
                         draw_next -= imgui.io.delta_time
+                        draw_start = time.perf_counter()
 
                         # Reactive mouse cursors
                         if cursor != prev_cursor or any_hovered != prev_any_hovered:
@@ -1023,7 +1025,7 @@ class MainGUI():
                             self.refresh_fonts()
                             self.refresh_styles()
                             async_thread.run(db.update_settings("interface_scaling"))
-                        imagehelper.post_draw()
+                        imagehelper.post_draw(time.perf_counter() - draw_start)
                     # Wait idle time
                         glfw.swap_buffers(self.window)
                         if first_frame:
@@ -1707,9 +1709,9 @@ class MainGUI():
             changed, value = imgui.checkbox(f"###{game.id}_tag_{tag.value}", tag in game.tags)
             if changed:
                 if value:
-                    game.tags = tuple(sorted(list(game.tags) + [tag]))
+                    game.tags = tuple(sorted(list(game.tags) + [tag], key=lambda tag: tag.name))
                 else:
-                    game.tags = tuple(sorted(filter(lambda x: x is not tag, game.tags)))
+                    game.tags = tuple(sorted(filter(lambda x: x is not tag, game.tags), key=lambda tag: tag.name))
             imgui.same_line()
             self.draw_tag_widget(tag, quick_filter=False, change_highlight=False)
 
@@ -1776,6 +1778,93 @@ class MainGUI():
                 utils.text_context(type("_", (), dict(_=first_line))(), "_", setter_extra)
                 imgui.end_popup()
 
+    def draw_game_reviews_widget(self, game: Game):
+        icon_coordinates: list[tuple[x1, y1, x2, y2]] = []
+        text_coordinates: list[tuple[x1, y1, x2, y2]] = []
+        line_coordinates: list[tuple[x1, y1, x2, y2]] = []
+
+        imgui.dummy(0, self.scaled(6))
+
+        for review in game.reviews:
+            if review.score > 3:
+                icon = icons.thumb_up
+            elif review.score == 3:
+                icon = icons.approximately_equal
+            else:
+                icon = icons.thumb_down
+            date = dt.datetime.fromtimestamp(review.timestamp)
+            # Draw icon
+            imgui.dummy(0, 0)
+            imgui.same_line()
+            cur = imgui.get_cursor_screen_pos()
+            imgui.text_colored(icon, *globals.settings.style_accent)
+            icon_size = imgui.get_item_rect_size()
+            icon_coordinates.append((cur.x, cur.y, cur.x + icon_size.x, cur.y + icon_size.y))
+            # Draw header
+            imgui.same_line(spacing=self.scaled(15))
+            pos_x, header_pos_y = imgui.get_cursor_screen_pos()
+            imgui.push_font(imgui.fonts.bold)
+            imgui.text_colored(review.user, *globals.settings.style_accent)
+            imgui.pop_font()
+            imgui.same_line()
+            imgui.push_y(self.scaled(3.5))
+            imgui.text_disabled(date.strftime(globals.settings.datestamp_format))
+            self.draw_hover_text(date.strftime(globals.settings.timestamp_format), text=None)
+            imgui.same_line()
+            imgui.push_no_interaction()
+            ratingwidget.ratingwidget("", review.score)
+            imgui.pop_no_interaction()
+            imgui.pop_y()
+            imgui.spacing()
+            # Draw message
+            message_pos_y = imgui.get_cursor_screen_pos().y
+            imgui.set_cursor_screen_pos((pos_x, message_pos_y))
+            imgui.text(review.message)
+            # Draw footer
+            if review.likes:
+                footer_pos_y = imgui.get_cursor_screen_pos().y
+                imgui.set_cursor_screen_pos((pos_x, footer_pos_y))
+                imgui.text_disabled(f"Liked by {review.likes} user{'' if review.likes == 1 else 's'}")
+            final_pos_x = imgui.get_cursor_screen_pos().x + imgui.get_content_region_available_width() - self.scaled(2)
+            final_pos_y = imgui.get_cursor_screen_pos().y - self.scaled(2)
+            text_coordinates.append((pos_x, header_pos_y, final_pos_x, final_pos_y))
+            line_coordinates.append((pos_x, message_pos_y, final_pos_x, message_pos_y))
+            imgui.dummy(0, self.scaled(16))
+
+        if len(game.reviews) < game.reviews_total:
+            imgui.dummy(0, 0)
+            imgui.same_line()
+            cur = imgui.get_cursor_screen_pos()
+            imgui.begin_group()
+            imgui.text_colored(icons.open_in_new, *globals.settings.style_accent)
+            imgui.same_line(spacing=self.scaled(10))
+            imgui.text(f"Read {game.reviews_total - len(game.reviews)} more reviews in forum thread ")
+            imgui.end_group()
+            button_size = imgui.get_item_rect_size()
+            if imgui.is_item_clicked():
+                callbacks.open_webpage(game.url + "/page-2/br-reviews")
+            icon_coordinates.append((cur.x, cur.y, cur.x + button_size.x, cur.y + button_size.y))
+            imgui.set_cursor_screen_pos(cur)
+            imgui.invisible_button("", *button_size)
+
+        thickness = imgui.style.frame_border_size
+        prev_rect = None
+        padding = self.scaled(3)
+        dl = imgui.get_window_draw_list()
+        color = imgui.get_color_u32_rgba(*globals.settings.style_border)
+
+        # Draw timeline primitives
+        rounding = self.scaled(globals.settings.style_corner_radius)
+        for x1, y1, x2, y2 in icon_coordinates:
+            dl.add_rect(x1 - padding, y1 - padding, x2 + padding, y2 + padding, color, rounding=rounding, thickness=thickness)
+            if prev_rect:
+                dl.add_line((prev_rect[0] + prev_rect[2]) / 2, prev_rect[3] + padding, (prev_rect[0] + prev_rect[2]) / 2, y1 - padding, color, thickness=thickness)
+            prev_rect = (x1, y1, x2, y2)
+        for x1, y1, x2, y2 in text_coordinates:
+            dl.add_rect(x1 - padding - self.scaled(2), y1 - padding, x2 + padding + self.scaled(2), y2 + padding, color, rounding=rounding, thickness=thickness)
+        for x1, y1, x2, y2 in line_coordinates:
+            dl.add_line(x1 - padding - self.scaled(2), y1 - padding, x2 + padding + self.scaled(2), y2 - padding, color, thickness=thickness)
+
     def draw_game_tags_widget(self, game: Game):
         pad = 2 * imgui.style.frame_padding.x + imgui.style.item_spacing.x
         for tag in game.tags:
@@ -1838,15 +1927,11 @@ class MainGUI():
             message = type.template.format(*args, *["?" for _ in range(type.args_min - len(args))])
             # Short timeline variant
             if globals.settings.compact_timeline:
-                imgui.push_style_color(imgui.COLOR_TEXT, *globals.settings.style_text_dim)
                 imgui.push_font(imgui.fonts.mono)
-                imgui.text(date.strftime(globals.settings.timestamp_format))
+                imgui.text_disabled(date.strftime(globals.settings.timestamp_format))
                 imgui.pop_font()
-                imgui.pop_style_color()
                 imgui.same_line()
-                imgui.push_style_color(imgui.COLOR_TEXT, *globals.settings.style_accent)
-                imgui.text(icon)
-                imgui.pop_style_color()
+                imgui.text_colored(icon, *globals.settings.style_accent)
                 imgui.same_line()
                 imgui.text(message)
                 return
@@ -1854,17 +1939,13 @@ class MainGUI():
             imgui.dummy(0, 0)
             imgui.same_line()
             cur = imgui.get_cursor_screen_pos()
-            imgui.push_style_color(imgui.COLOR_TEXT, *globals.settings.style_accent)
-            imgui.text(icon)
-            imgui.pop_style_color()
+            imgui.text_colored(icon, *globals.settings.style_accent)
             icon_size = imgui.get_item_rect_size()
             icon_coordinates.append((cur.x, cur.y, cur.x + icon_size.x, cur.y + icon_size.y))
             # Draw timestamp
             imgui.same_line(spacing=self.scaled(15))
             timestamp_pos = imgui.get_cursor_screen_pos()
-            imgui.push_style_color(imgui.COLOR_TEXT, *globals.settings.style_text_dim)
-            imgui.text(date.strftime(globals.settings.datestamp_format))
-            imgui.pop_style_color()
+            imgui.text_disabled(date.strftime(globals.settings.datestamp_format))
             timestamp_size = imgui.get_item_rect_size()
             self.draw_hover_text(date.strftime(globals.settings.timestamp_format), text=None)
             # Draw message
@@ -1884,7 +1965,7 @@ class MainGUI():
         if TimelineEventType.GameAdded not in globals.settings.hidden_timeline_events:
             draw_event(game.added_on.value, TimelineEventType.GameAdded, [], spacing=False)
 
-        thickness = 2
+        thickness = imgui.style.frame_border_size
         prev_rect = None
         padding = self.scaled(3)
         dl = imgui.get_window_draw_list()
@@ -2261,29 +2342,37 @@ class MainGUI():
 
                 imgui.table_next_row()
 
-                imgui.table_next_column()
+                # Draw labels on right first, so executables on left can then overflow below to right
+                imgui.table_set_column_index(1)
+                imgui.begin_group()
                 imgui.align_text_to_frame_padding()
-                if len(game.executables) <= 1:
-                    imgui.text_disabled("Executable:")
-                    imgui.same_line()
-                    if game.executables:
-                        imgui.text(game.executables[0])
-                    else:
-                        imgui.text("Not set")
+                imgui.text_disabled("Labels:")
+                imgui.same_line()
+                if game.labels:
+                    self.draw_game_labels_widget(game)
                 else:
-                    imgui.text_disabled("Executables:")
+                    imgui.button("Right click to add")
+                imgui.end_group()
+                labels_end_y = imgui.get_cursor_pos_y()
+                if imgui.begin_popup_context_item(f"###{game.id}_context_labels"):
+                    self.draw_game_labels_select_widget(game)
+                    imgui.end_popup()
 
-                imgui.table_next_column()
-                self.draw_game_add_exe_button(game, f"{icons.folder_edit_outline} Add Exe")
+                imgui.table_set_column_index(0)
+                imgui.align_text_to_frame_padding()
+                imgui.text_disabled("Executables:")
+                imgui.same_line()
+                self.draw_game_add_exe_button(game, f"{icons.folder_edit_outline} Add")
                 imgui.same_line()
                 self.draw_game_open_folder_button(game, f"{icons.folder_open_outline} Open Folder")
                 imgui.same_line()
-                self.draw_game_clear_exes_button(game, f"{icons.folder_remove_outline} Clear Exes")
-
-                imgui.end_table()
-
-            if len(game.executables) > 1:
+                self.draw_game_clear_exes_button(game, f"{icons.folder_remove_outline} Clear")
+                ended_table = False
                 for executable in game.executables:
+                    if not ended_table and (pos_y := imgui.get_cursor_pos_y()) >= labels_end_y:
+                        imgui.end_table()
+                        ended_table = True
+                        imgui.set_cursor_pos_y(pos_y)
                     self.draw_game_play_button(game, icons.play, executable=executable)
                     imgui.same_line()
                     self.draw_game_open_folder_button(game, icons.folder_open_outline, executable=executable)
@@ -2295,6 +2384,12 @@ class MainGUI():
                     ig_space = "　"
                     imgui.text(executable.replace("/", f"/{ig_space}").replace("\\", f"\\{ig_space}"))
 
+                if not ended_table:
+                    pos_y = max(imgui.get_cursor_pos_y(), labels_end_y)
+                    imgui.end_table()
+                    imgui.set_cursor_pos_y(pos_y)
+
+            imgui.spacing()
             imgui.spacing()
 
             if imgui.begin_tab_bar("Details"):
@@ -2396,28 +2491,22 @@ class MainGUI():
                     imgui.end_tab_item()
 
                 if imgui.begin_tab_item((
-                    icons.label_multiple_outline if len(game.labels) > 1 else
-                    icons.label_outline if len(game.labels) == 1 else
-                    icons.label_off_outline
-                ) + " Labels###labels")[0]:
-                    imgui.spacing()
-                    imgui.button("Right click to edit")
-                    if imgui.begin_popup_context_item(f"###{game.id}_context_labels"):
-                        self.draw_game_labels_select_widget(game)
-                        imgui.end_popup()
-                    imgui.same_line(spacing=2 * imgui.style.item_spacing.x)
-                    if game.labels:
-                        self.draw_game_labels_widget(game)
-                    else:
-                        imgui.text_disabled("This game has no labels!")
-                    imgui.end_tab_item()
-
-                if imgui.begin_tab_item((
                     icons.draw_pen if game.notes else
                     icons.pencil_plus_outline
                 ) + " Notes###notes")[0]:
                     imgui.spacing()
                     self.draw_game_notes_widget(game)
+                    imgui.end_tab_item()
+
+                if not game.custom and imgui.begin_tab_item((
+                    icons.star_outline if game.reviews else
+                    icons.star_off_outline
+                ) + " Reviews###reviews")[0]:
+                    imgui.spacing()
+                    if game.reviews:
+                        self.draw_game_reviews_widget(game)
+                    else:
+                        imgui.text_disabled("This game doesn't have any reviews yet!")
                     imgui.end_tab_item()
 
                 if imgui.begin_tab_item((
@@ -2736,6 +2825,7 @@ class MainGUI():
                 "FaceCrap",
                 "WhiteVanDaycare",
                 "ascsd",
+                "GioBol",
                 "Jarulf",
                 "rozzic",
                 "Belfaier",
@@ -2831,10 +2921,14 @@ class MainGUI():
             if imgui.begin_tab_bar("###tabbar", flags=self.tabbar_flags):
                 hide = globals.settings.hide_empty_tabs
                 count = len(self.show_games_ids.get(None, ()))
-                if (count or not hide) and imgui.begin_tab_item(f"{Tab.first_tab_label()} ({count})###tab_-1")[0]:
+                if (count or not hide) and imgui.begin_tab_item(
+                    f"{Tab.first_tab_label()} ({count})###tab_-1",
+                    flags=imgui.TAB_ITEM_NO_REORDER
+                )[0]:
                     new_tab = None
                     imgui.end_tab_item()
-                for tab in Tab.instances:
+                swap = None
+                for tab_i, tab in enumerate(Tab.instances):
                     count = len(self.show_games_ids.get(tab, ()))
                     if hide and not count:
                         continue
@@ -2851,6 +2945,16 @@ class MainGUI():
                         imgui.end_tab_item()
                     if tab.color:
                         imgui.pop_style_color(4)
+                    if imgui.is_item_active():
+                        mouse_pos = imgui.get_mouse_pos()
+                        if tab_i > 0 and mouse_pos.x < imgui.get_item_rect_min().x:
+                            if imgui.get_mouse_drag_delta().x < 0:
+                                swap = (tab_i, tab_i - 1)
+                            imgui.reset_mouse_drag_delta()
+                        elif tab_i < len(Tab.instances) - 1 and mouse_pos.x > imgui.get_item_rect_max().x:
+                            if imgui.get_mouse_drag_delta().x > 0:
+                                swap = (tab_i, tab_i + 1)
+                            imgui.reset_mouse_drag_delta()
                     context_id = f"###tab_{tab.id}_context"
                     set_focus = not imgui.is_popup_open(context_id)
                     if imgui.begin_popup_context_item(context_id):
@@ -2915,6 +3019,13 @@ class MainGUI():
                                 close_callback()
                         imgui.end_popup()
                 imgui.end_tab_bar()
+                if swap:
+                    Tab.instances[swap[0]], Tab.instances[swap[1]] = Tab.instances[swap[1]], Tab.instances[swap[0]]
+                    Tab.update_positions()
+                    async def _update_tab_positions():
+                        for tab in Tab.instances:
+                            await db.update_tab(tab, "position")
+                    async_thread.run(_update_tab_positions())
         if new_tab is not self.current_tab and save_new_tab:
             for game in globals.games.values():
                 game.selected = False
@@ -4328,7 +4439,7 @@ class MainGUI():
                 "usage. Disk usage should be roughly the same (some images compress better than others, it averages out).\n\n"
                 "ASTC:\n"
                 "+ when supported takes 9x less VRAM\n"
-                "+ takes 20%% less disk space than original images\n"
+                "+ takes 20% less disk space than original images\n"
                 "+ compresses slightly faster than BC7\n"
                 "- very limited GPU support, may not work at all\n"
                 "- when unsupported may use same VRAM as uncompressed (decompressed on-the-fly)\n"
@@ -4337,7 +4448,7 @@ class MainGUI():
                 "+ when supported takes 4x less VRAM\n"
                 "+ supported by most GPUs\n"
                 "+ more likely to decrease VRAM usage than ASTC\n"
-                "- takes 60%% more disk space than original images\n"
+                "- takes 60% more disk space than original images\n"
                 "- compresses slightly slower than ASTC\n"
                 "- not supported on MacOS\n"
                 "Visual quality tends to be equivalent.\n\n"
@@ -4376,6 +4487,13 @@ class MainGUI():
                 "together with Tex compress, so image load times are less noticeable."
             )
             draw_settings_checkbox("unload_offscreen_images")
+
+            draw_settings_label(
+                "Preload nearby images:",
+                "Starts loading images when they aren't yet visible but are less than a window width/height scroll away. Works "
+                "best together with Tex compress, so image load times are very short and completely unnoticeable due to preloading."
+            )
+            draw_settings_checkbox("preload_nearby_images")
 
             imgui.end_table()
             imgui.spacing()
@@ -4891,7 +5009,7 @@ class MainGUI():
             draw_settings_checkbox("check_notifs")
 
             draw_settings_label(
-                "Banners in update notifs:",
+                "Update notifs banners:",
                 "Whether to include a banner image when sending desktop notifications for updates."
             )
             draw_settings_checkbox("notifs_show_update_banner")
