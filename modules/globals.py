@@ -33,6 +33,7 @@ def _():
     from common.meta import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
 
     if debug:
+        global logger
         import logging
         logging.basicConfig()
         logger = logging.getLogger("f95checker")
