@@ -84,14 +84,16 @@ void gui_backend_process_events(Gui* gui) {
         if(event.type == SDL_EVENT_MOUSE_WHEEL &&
            event.window.windowID == SDL_GetWindowID(gui->window)) {
             // Handle wheel events locally to apply smooth scrolling
-            event.wheel.x *= scroll_multiplier;
-            event.wheel.y *= scroll_multiplier;
-            // Immediately stop if direction changes
-            if(gui->scroll_energy.x * event.wheel.x < 0.0f) {
-                gui->scroll_energy.x = 0.0f;
-            }
-            if(gui->scroll_energy.y * event.wheel.y < 0.0f) {
-                gui->scroll_energy.y = 0.0f;
+            event.wheel.x *= settings->scroll_amount;
+            event.wheel.y *= settings->scroll_amount;
+            if(settings->scroll_smooth) {
+                // Immediately stop if direction changes
+                if(gui->scroll_energy.x * event.wheel.x < 0.0f) {
+                    gui->scroll_energy.x = 0.0f;
+                }
+                if(gui->scroll_energy.y * event.wheel.y < 0.0f) {
+                    gui->scroll_energy.y = 0.0f;
+                }
             }
             gui->scroll_energy.x += event.wheel.x;
             gui->scroll_energy.y += event.wheel.y;
@@ -129,24 +131,30 @@ void gui_backend_process_events(Gui* gui) {
 void gui_backend_new_frame(Gui* gui) {
     UNUSED(gui);
 
-    // FIXME: use settings for parameters
     // Apply smooth scrolling
     ImVec2 scroll_now;
-    if(ABS(gui->scroll_energy.x) > 0.01f) {
-        scroll_now.x = gui->scroll_energy.x * gui->io->DeltaTime * scroll_smoothing;
-        gui->scroll_energy.x -= scroll_now.x;
+    if(settings->scroll_smooth) {
+        if(ABS(gui->scroll_energy.x) > 0.01f) {
+            scroll_now.x =
+                gui->scroll_energy.x * gui->io->DeltaTime * settings->scroll_smooth_speed;
+            gui->scroll_energy.x -= scroll_now.x;
+        } else {
+            // Cutoff smoothing when it's basically stopped
+            scroll_now.x = 0.0f;
+            gui->scroll_energy.x = 0.0f;
+        }
+        if(ABS(gui->scroll_energy.y) > 0.01f) {
+            scroll_now.y =
+                gui->scroll_energy.y * gui->io->DeltaTime * settings->scroll_smooth_speed;
+            gui->scroll_energy.y -= scroll_now.y;
+        } else {
+            // Cutoff smoothing when it's basically stopped
+            scroll_now.y = 0.0f;
+            gui->scroll_energy.y = 0.0f;
+        }
     } else {
-        // Cutoff smoothing when it's basically stopped
-        scroll_now.x = 0.0f;
-        gui->scroll_energy.x = 0.0f;
-    }
-    if(ABS(gui->scroll_energy.y) > 0.01f) {
-        scroll_now.y = gui->scroll_energy.y * gui->io->DeltaTime * scroll_smoothing;
-        gui->scroll_energy.y -= scroll_now.y;
-    } else {
-        // Cutoff smoothing when it's basically stopped
-        scroll_now.y = 0.0f;
-        gui->scroll_energy.y = 0.0f;
+        scroll_now = gui->scroll_energy;
+        gui->scroll_energy = (ImVec2){0, 0};
     }
     gui->io->MouseWheel = scroll_now.y;
     gui->io->MouseWheelH = -scroll_now.x;
