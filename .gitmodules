@@ -28,6 +28,6 @@
 [submodule "lib/vendor/wolfssl"]
 	path = lib/vendor/wolfssl
 	url = https://github.com/wolfSSL/wolfssl.git
-[submodule "lib/vendor/shlex"]
+[submodule "lib/vendor/shlex_cpp"]
 	path = lib/vendor/shlex_cpp
 	url = https://github.com/shogo82148/shlex.cpp.git
