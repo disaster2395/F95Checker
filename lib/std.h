@@ -134,6 +134,27 @@ typedef long double flt128_t;
 #define M_TUPLE_EX_OPL(name, ...) \
     M_TUPLE_OPLIST(name, M_MAP_C(M_GLOBAL_OPLIST_OR_DEF_CALL, __VA_ARGS__))
 
+/*
+ * Based on: https://github.com/P-p-H-d/mlib/blob/5c57ad1f5185446842210934d022266f926a8aeb/example/ex-dict05.c
+ * Provide OOR methods for OA Hashmap.
+ * See documentation for definition of OOR
+ * OOR values are represented as:
+ * empty (0) is INT_MIN
+ * deleted (1) is INT_MIN + 1
+ * So valid range for integers are [INT_MIN+2, INT_MAX]
+ */
+#define M_INT32_OOR_EQUAL(n, oor) (n == INT32_MIN + oor)
+#define M_INT32_OOR_SET(oor)      (INT32_MIN + oor)
+#define M_INT_OOR_EQUAL(int)      M_##int##_OOR_EQUAL
+#define M_INT_OOR_SET(int)        M_##int##_OOR_SET
+#define M_INT_HASH(n)             ((size_t)n) // Identity hash!
+#define M_INT_EX_OPL(int)                       \
+    M_OPEXTEND(                                 \
+        M_BASIC_OPLIST,                         \
+        OOR_EQUAL(API_0(M_INT_OOR_EQUAL(int))), \
+        OOR_SET(API_4(M_INT_OOR_SET(int))),     \
+        HASH(M_INT_HASH))
+
 // Based on M_EACH() but also dereferences item pointer for convenience;
 // container and container_t are swapped to resemble variable declaration.
 #define each(item_t, item, container_t, container) \

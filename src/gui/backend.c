@@ -7,8 +7,7 @@
 #include <dcimgui/dcimgui.h>
 #include <SDL3/SDL_opengl.h>
 
-const flt32_t scroll_multiplier = 2.0f;
-const flt32_t scroll_smoothing = 8.0f;
+#include <globals.h>
 
 static inline void gui_backend_sdl_perror(const char* s) {
     custom_perror(s, SDL_GetError());

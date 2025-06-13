@@ -9,16 +9,7 @@
 #include <std.h>
 
 typedef int32_t GameId;
-
-bool GameId_oor_equal(GameId k, char n);
-GameId GameId_oor_set(char n);
-size_t GameId_hash(GameId n);
-#define M_OPL_GameId()                  \
-    M_OPEXTEND(                         \
-        M_BASIC_OPLIST,                 \
-        OOR_EQUAL(GameId_oor_equal),    \
-        OOR_SET(API_4(GameId_oor_set)), \
-        HASH(GameId_hash))
+#define M_OPL_GameId() M_INT_EX_OPL(INT32)
 
 M_ARRAY_EX_DEF(game_id_array, GameIdArray, GameId)
 #define M_OPL_GameIdArray() M_ARRAY_EX_OPL(game_id_array, GameId)

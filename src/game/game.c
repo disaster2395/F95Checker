@@ -1,26 +1,5 @@
 #include "game.h"
 
-/*
- * From: https://github.com/P-p-H-d/mlib/blob/5c57ad1f5185446842210934d022266f926a8aeb/example/ex-dict05.c
- * Provide OOR methods for OA Hashmap.
- * See documentation for definition of OOR
- * OOR values are represented as:
- * empty (0) is INT_MIN
- * deleted (1) is INT_MIN + 1
- * So valid range for integers are [INT_MIN+2, INT_MAX]
- */
-bool GameId_oor_equal(GameId id, char oor) {
-    return id == INT32_MIN + oor;
-}
-
-GameId GameId_oor_set(char oor) {
-    return INT32_MIN + oor;
-}
-
-size_t GameId_hash(GameId id) {
-    return (size_t)id; // Identity hash!
-}
-
 Game* game_init(void) {
     Game* game = malloc(sizeof(Game));
 
