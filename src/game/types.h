@@ -4,6 +4,7 @@
 
 #include <dcimgui/dcimgui.h>
 #include <smart_enum/smart_enum.h>
+
 #include <std.h>
 
 #define _GameCategory(_, $) \
