@@ -214,6 +214,44 @@ typedef struct {
 } GameTagInfo;
 extern const GameTagInfo game_tag[1 + GameTag_COUNT];
 
+#define _GameTimelineEventType(_, $)      \
+    _($, Added, 1)                        \
+    _($, Launched, 2)                     \
+    _($, Finished, 3)                     \
+    _($, Installed, 4)                    \
+    _($, ChangedName, 5)                  \
+    _($, ChangedStatus, 6)                \
+    _($, ChangedVersion, 7)               \
+    _($, ChangedDeveloper, 8)             \
+    _($, ChangedType, 9)                  \
+    _($, TagsAdded, 10)                   \
+    _($, TagsRemoved, 11)                 \
+    _($, ScoreIncreased, 12)              \
+    _($, ScoreDecreased, 13)              \
+    _($, RecheckExpired, 14) /* Unused */ \
+    _($, RecheckUserReq, 15)
+SMARTENUM_DECLARE(_GameTimelineEventType, GameTimelineEventType)
+typedef struct {
+    const char* display;
+    const char* icon;
+    uint8_t args_min;
+    const char* template;
+} GameTimelineEventTypeInfo;
+extern const GameTimelineEventTypeInfo game_timeline_event_type[1 + GameTimelineEventType_COUNT];
+
+M_TUPLE_EX_DEF(
+    game_timeline_event,
+    GameTimelineEvent,
+    (type, GameTimelineEventType),
+    (timestamp, Timestamp),
+    (arguments, m_string_list_t))
+#define M_OPL_GameTimelineEvent() \
+    M_TUPLE_EX_OPL(game_timeline_event, GameTimelineEventType, Timestamp, m_string_list_t)
+
+M_LIST_DUAL_PUSH_EX_DEF(game_timeline_event_list, GameTimelineEventList, GameTimelineEvent)
+#define M_OPL_GameTimelineEventList() \
+    M_LIST_DUAL_PUSH_EX_OPL(game_timeline_event_list, GameTimelineEvent)
+
 #define _GameType(_, $) \
     _($, ADRIFT, 2)     \
     _($, Flash, 4)      \

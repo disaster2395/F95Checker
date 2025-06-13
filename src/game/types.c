@@ -171,6 +171,117 @@ const GameTagInfo game_tag[1 + GameTag_COUNT] = {
     [GameTag_Voyeurism] = {.text = "voyeurism"},
 };
 
+SMARTENUM_DEFINE(_GameTimelineEventType, GameTimelineEventType)
+const GameTimelineEventTypeInfo game_timeline_event_type[1 + GameTimelineEventType_COUNT] = {
+    // FIXME: update format specifiers for sprintf
+    [GameTimelineEventType_Added] =
+        {
+            .display = "Added",
+            .icon = mdi_alert_decagram,
+            .args_min = 0,
+            .template = "Added to the library",
+        },
+    [GameTimelineEventType_Launched] =
+        {
+            .display = "Launched",
+            .icon = mdi_play,
+            .args_min = 1,
+            .template = "Launched {}",
+        },
+    [GameTimelineEventType_Finished] =
+        {
+            .display = "Finished",
+            .icon = mdi_flag_checkered,
+            .args_min = 1,
+            .template = "Finished {}",
+        },
+    [GameTimelineEventType_Installed] =
+        {
+            .display = "Installed",
+            .icon = mdi_download,
+            .args_min = 1,
+            .template = "Installed {}",
+        },
+    [GameTimelineEventType_ChangedName] =
+        {
+            .display = "Changed name",
+            .icon = mdi_spellcheck,
+            .args_min = 2,
+            .template = "Name changed from \"{}\" to \"{}\"",
+        },
+    [GameTimelineEventType_ChangedStatus] =
+        {
+            .display = "Changed status",
+            .icon = mdi_lightning_bolt,
+            .args_min = 2,
+            .template = "Status changed from \"{}\" to \"{}\"",
+        },
+    [GameTimelineEventType_ChangedVersion] =
+        {
+            .display = "Changed version",
+            .icon = mdi_star,
+            .args_min = 2,
+            .template = "Version changed from \"{}\" to \"{}\"",
+        },
+    [GameTimelineEventType_ChangedDeveloper] =
+        {
+            .display = "Changed developer",
+            .icon = mdi_account,
+            .args_min = 2,
+            .template = "Developer changed from \"{}\" to \"{}\"",
+        },
+    [GameTimelineEventType_ChangedType] =
+        {
+            .display = "Changed type",
+            .icon = mdi_shape,
+            .args_min = 2,
+            .template = "Type changed from \"{}\" to \"{}\"",
+        },
+    [GameTimelineEventType_TagsAdded] =
+        {
+            .display = "Tags added",
+            .icon = mdi_tag_plus,
+            .args_min = 1,
+            .template = "Tags were added: {}",
+        },
+    [GameTimelineEventType_TagsRemoved] =
+        {
+            .display = "Tags removed",
+            .icon = mdi_tag_minus,
+            .args_min = 1,
+            .template = "Tags were removed: {}",
+        },
+    [GameTimelineEventType_ScoreIncreased] =
+        {
+            .display = "Score increased",
+            .icon = mdi_thumb_up,
+            .args_min = 4,
+            .template = "Forum score increased from {} ({}) to {} ({})",
+        },
+    [GameTimelineEventType_ScoreDecreased] =
+        {
+            .display = "Score decreased",
+            .icon = mdi_thumb_down,
+            .args_min = 4,
+            .template = "Forum score decreased from {} ({}) to {} ({})",
+        },
+    [GameTimelineEventType_RecheckExpired] =
+        {
+            .display = "Recheck expired",
+            .icon = mdi_timer_sync,
+            .args_min = 1,
+            .template =
+                "Forcefully performed a full recheck because game has remained idle for {} day(s)",
+        },
+    [GameTimelineEventType_RecheckUserReq] =
+        {
+            .display = "Recheck requested",
+            .icon = mdi_reload_alert,
+            .args_min = 0,
+            .template = "Forcefully performed a full recheck requested by user",
+        },
+};
+
 SMARTENUM_DEFINE(_GameType, GameType)
 const GameTypeInfo game_type[1 + GameType_COUNT] = {
     [GameType_ADRIFT] = {.color = {{0.129, 0.588, 0.953, 1.0}}, .category = GameCategory_Games},

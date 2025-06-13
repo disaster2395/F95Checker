@@ -55,15 +55,6 @@ async def connect():
             "value":                       f'TEXT    DEFAULT ""',
         }
     )
-    await create_table(
-        table_name="timeline_events",
-        columns={
-            "game_id":                     f'INTEGER DEFAULT NULL',
-            "timestamp":                   f'INTEGER DEFAULT 0',
-            "arguments":                   f'TEXT    DEFAULT "[]"',
-            "type":                        f'INTEGER DEFAULT 1',
-        }
-    )
 
 
 def sql_to_py(value: str | int | float, data_type: typing.Type):
@@ -117,22 +108,6 @@ def row_to_cls(row: sqlite3.Row, cls: typing.Type):
 
 
 async def load():
-    # TimelineEvents need Games to be loaded
-    cursor = await connection.execute("""
-        SELECT *
-        FROM timeline_events
-        ORDER BY timestamp DESC
-    """)
-    unknown_game_ids = set()
-    for event in await cursor.fetchall():
-        event = row_to_cls(event, TimelineEvent)
-        if event.game_id not in globals.games:
-            unknown_game_ids.add(event.game_id)
-            continue
-        globals.games[event.game_id].timeline_events.append(event)
-    for unknown_game_id in unknown_game_ids:
-        await delete_timeline_events(unknown_game_id)
-
     cursor = await connection.execute("""
         SELECT *
         FROM cookies
@@ -227,17 +202,6 @@ async def delete_tab(tab: Tab):
     Tab.remove(tab)
     if globals.gui:
         globals.gui.recalculate_ids = True
-
-
-async def create_timeline_event(game_id: int, timestamp: Timestamp, arguments: list[str], type: TimelineEventType):
-    await connection.execute(f"""
-        INSERT INTO timeline_events
-        (game_id, timestamp, arguments, type)
-        VALUES
-        (?, ?, ?, ?)
-    """, [py_to_sql(value) for value in (game_id, timestamp, arguments, type)])
-    event = TimelineEvent(game_id, timestamp, arguments, type)
-    globals.games[game_id].timeline_events.insert(0, event)
 
 
 async def delete_timeline_events(game_id: int):

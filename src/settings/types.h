@@ -44,28 +44,3 @@ extern const TagHighlightInfo tag_highlight[TagHighlight_COUNT];
     _($, ASTC, 2)          \
     _($, BC7, 3)
 SMARTENUM_DECLARE(_TexCompress, TexCompress)
-
-#define _TimelineEventType(_, $)          \
-    _($, GameAdded, 1)                    \
-    _($, GameLaunched, 2)                 \
-    _($, GameFinished, 3)                 \
-    _($, GameInstalled, 4)                \
-    _($, ChangedName, 5)                  \
-    _($, ChangedStatus, 6)                \
-    _($, ChangedVersion, 7)               \
-    _($, ChangedDeveloper, 8)             \
-    _($, ChangedType, 9)                  \
-    _($, TagsAdded, 10)                   \
-    _($, TagsRemoved, 11)                 \
-    _($, ScoreIncreased, 12)              \
-    _($, ScoreDecreased, 13)              \
-    _($, RecheckExpired, 14) /* Unused */ \
-    _($, RecheckUserReq, 15)
-SMARTENUM_DECLARE(_TimelineEventType, TimelineEventType)
-typedef struct {
-    const char* display;
-    const char* icon;
-    uint8_t args_min;
-    const char* template;
-} TimelineEventTypeInfo;
-extern const TimelineEventTypeInfo timeline_event_type[1 + TimelineEventType_COUNT];

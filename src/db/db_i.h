@@ -20,6 +20,8 @@ typedef struct {
         DbMessageType_CreateGame,
         DbMessageType_DeleteGame,
 
+        DbMessageType_CreateGameTimelineEvent,
+
         DbMessageType_LoadTabs,
         DbMessageType_SaveTab,
         DbMessageType_CreateTab,
@@ -62,6 +64,12 @@ typedef struct {
                 GameId id;
                 Game** out;
             } game;
+            struct {
+                Game* game;
+                GameTimelineEventType type;
+                m_string_list_ptr arguments;
+                GameTimelineEvent_ptr* out;
+            } game_timeline_event;
             struct {
                 TabList_ptr tabs;
                 Tab_ptr* out;
@@ -122,6 +130,14 @@ void db_do_load_games(Db* db, GameDict_ptr games);
 void db_do_save_game(Db* db, Game* game, GamesColumn column);
 Game* db_do_create_game(Db* db, GameDict_ptr games, GameId id);
 void db_do_delete_game(Db* db, Game* game, GameDict_ptr games);
+
+void db_do_load_game_timeline_events(Db* db, GameDict_ptr games);
+GameTimelineEvent_ptr db_do_create_game_timeline_event(
+    Db* db,
+    Game* game,
+    GameTimelineEventType type,
+    m_string_list_ptr arguments);
+void db_do_delete_game_timeline_events(Db* db, GameId game_id);
 
 void db_do_load_tabs(Db* db, TabList_ptr tabs);
 void db_do_save_tab(Db* db, Tab_ptr tab, TabsColumn column);

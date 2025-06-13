@@ -46,7 +46,7 @@ typedef struct {
     bool filter_all_tabs;
     bool fit_images;
     int32_t grid_columns;
-    bool hidden_timeline_events[1 + TimelineEventType_COUNT];
+    bool hidden_timeline_events[1 + GameTimelineEventType_COUNT];
     bool hide_empty_tabs;
     bool highlight_tags;
     bool ignore_semaphore_timeouts;

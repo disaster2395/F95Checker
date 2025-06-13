@@ -32,6 +32,8 @@ Game* game_init(void) {
 
     game_review_list_init(game->reviews);
 
+    game_timeline_event_list_init(game->timeline_events);
+
     return game;
 }
 
@@ -63,6 +65,8 @@ void game_free(Game* game) {
     game_download_list_clear(game->downloads);
 
     game_review_list_clear(game->reviews);
+
+    game_timeline_event_list_clear(game->timeline_events);
 
     free(game);
 }

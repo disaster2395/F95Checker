@@ -51,12 +51,12 @@ typedef struct {
     GameDownloadList downloads;
     uint32_t reviews_total;
     GameReviewList reviews;
+    GameTimelineEventList timeline_events;
 
     // bool = False selected;
     // "imagehelper.ImageHelper" = None image;
     // list[bool] = None executables_valids;
     // bool = None executables_valid;
-    // list[TimelineEvent] = dataclasses.field(default_factory = list) timeline_events;
 } Game;
 
 Game* game_init(void);

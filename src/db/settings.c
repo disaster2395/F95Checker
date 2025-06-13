@@ -326,7 +326,9 @@ void db_do_save_setting(Db* db, Settings* settings, SettingsColumn column) {
         break;
     case SettingsColumn_hidden_timeline_events:
         json_object* hidden_timeline_events_json = json_object_new_array();
-        for(TimelineEventType ev = TimelineEventType_min(); ev <= TimelineEventType_max(); ev++) {
+        for(GameTimelineEventType ev = GameTimelineEventType_min();
+            ev <= GameTimelineEventType_max();
+            ev++) {
             if(settings->hidden_timeline_events[ev] == false) continue;
             json_object_array_add(hidden_timeline_events_json, json_object_new_int(ev));
         }

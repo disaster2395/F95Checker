@@ -221,6 +221,8 @@ void db_do_load_games(Db* db, GameDict_ptr games) {
     db_assert(db, res, SQLITE_OK, "sqlite3_finalize()");
 
     m_string_clear(sql);
+
+    db_do_load_game_timeline_events(db, games);
 }
 
 void db_do_save_game(Db* db, Game* game, GamesColumn column) {
@@ -499,6 +501,7 @@ Game* db_do_create_game(Db* db, GameDict_ptr games, GameId id) {
 void db_do_delete_game(Db* db, Game* game, GameDict_ptr games) {
     GameId id = game->id;
     bool removed = game_dict_erase(games, id);
+    db_do_delete_game_timeline_events(db, id);
     game_free(game);
     assert(removed);
     UNUSED(removed);

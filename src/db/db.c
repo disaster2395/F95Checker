@@ -426,6 +426,26 @@ void db_delete_game(Db* db, Game* game, GameDict_ptr games) {
     db_send_message_blocking(db, message);
 }
 
+GameTimelineEvent_ptr db_create_game_timeline_event(
+    Db* db,
+    Game* game,
+    GameTimelineEventType type,
+    m_string_list_ptr arguments) {
+    GameTimelineEvent_ptr timeline_event;
+    const DbMessage message = {
+        .type = DbMessageType_CreateGameTimelineEvent,
+        .create.game_timeline_event =
+            {
+                .game = game,
+                .type = type,
+                .arguments = arguments,
+                .out = &timeline_event,
+            },
+    };
+    db_send_message_blocking(db, message);
+    return timeline_event;
+}
+
 void db_load_tabs(Db* db, TabList_ptr tabs) {
     const DbMessage message = {
         .type = DbMessageType_LoadTabs,
@@ -551,6 +571,14 @@ static void db_thread(void* ctx) {
             break;
         case DbMessageType_DeleteGame:
             db_do_delete_game(db, message.delete.game.ptr, message.delete.game.games);
+            break;
+
+        case DbMessageType_CreateGameTimelineEvent:
+            *message.create.game_timeline_event.out = db_do_create_game_timeline_event(
+                db,
+                message.create.game_timeline_event.game,
+                message.create.game_timeline_event.type,
+                message.create.game_timeline_event.arguments);
             break;
 
         case DbMessageType_LoadTabs:

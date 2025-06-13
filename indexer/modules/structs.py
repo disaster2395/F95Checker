@@ -560,14 +560,6 @@ class Filter:
 
 
 @dataclasses.dataclass(slots=True)
-class TimelineEvent:
-    game_id: int
-    timestamp: Timestamp
-    arguments: list[str]
-    type: TimelineEventType
-
-
-@dataclasses.dataclass(slots=True)
 class Label:
     @property
     def short_name(self):
@@ -740,11 +732,6 @@ class Game:
         async_thread.run(db.update_game(self, "labels"))
         if globals.gui:
             globals.gui.recalculate_ids = True
-
-    def add_timeline_event(self, type: TimelineEventType, *args):
-        from external import async_thread
-        from modules import db
-        async_thread.run(db.create_timeline_event(self.id, Timestamp(time.time()), list(args), type))
 
 
     def __setattr__(self, name: str, value: typing.Any):
