@@ -162,13 +162,9 @@ _()
 
 # Variables
 refresh_total = 0
-gui: MainGUI = None
 refresh_progress = 0
 last_update_check = 0.0
-settings: Settings = None
 refresh_task: Future = None
-games: dict[int, Game] = None
-cookies: dict[str, str] = None
 popup_stack: list[Popup] = []
 updated_games: dict[int, OldGame] = {}
 updated_games_sorted_ids: list[int] = []

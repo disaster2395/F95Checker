@@ -538,6 +538,25 @@ void db_delete_label(Db* db, Label_ptr label, LabelList_ptr labels) {
     db_send_message_blocking(db, message);
 }
 
+void db_load_cookies(Db* db, CookieDict_ptr cookies) {
+    const DbMessage message = {
+        .type = DbMessageType_LoadCookies,
+        .load.cookies = cookies,
+    };
+    db_send_message_blocking(db, message);
+}
+
+void db_save_cookies(Db* db, CookieDict_ptr cookies) {
+    const DbMessage message = {
+        .type = DbMessageType_SaveCookies,
+        .save.cookies =
+            {
+                .ptr = cookies,
+            },
+    };
+    db_send_message_blocking(db, message);
+}
+
 static void db_thread(void* ctx) {
     Db* db = ctx;
     bool quit = false;
@@ -605,6 +624,13 @@ static void db_thread(void* ctx) {
             break;
         case DbMessageType_DeleteLabel:
             db_do_delete_label(db, message.delete.label.ptr, message.delete.label.labels);
+            break;
+
+        case DbMessageType_LoadCookies:
+            db_do_load_cookies(db, message.load.cookies);
+            break;
+        case DbMessageType_SaveCookies:
+            db_do_save_cookies(db, message.save.cookies.ptr);
             break;
         }
 

@@ -115,6 +115,13 @@ typedef long double flt128_t;
     typedef name##_ptr name_t##_ptr;
 #define M_BUFFER_EX_OPL(name, type_t) M_BUFFER_OPLIST(name, M_GLOBAL_OPLIST_OR_DEF(type_t)())
 
+#define M_DICT_EX_DEF(name, name_t, ...)                                   \
+    M_DICT_DEF2_AS(name, name_t, name_t##_it, name_t##_itref, __VA_ARGS__) \
+    typedef name##_ptr name_t##_ptr;                                       \
+    typedef name##_pair_ct name_t##_pair;
+#define M_DICT_EX_OPL(name, key_t, value_t) \
+    M_DICT_OPLIST(name, M_GLOBAL_OPLIST_OR_DEF(key_t)(), M_GLOBAL_OPLIST_OR_DEF(value_t)())
+
 #define M_DICT_OA_EX_DEF(name, name_t, ...)                                   \
     M_DICT_OA_DEF2_AS(name, name_t, name_t##_it, name_t##_itref, __VA_ARGS__) \
     typedef name##_ptr name_t##_ptr;                                          \

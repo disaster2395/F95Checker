@@ -5,6 +5,7 @@
 #include "game/game.h"
 #include "gui/gui.h"
 #include "settings/settings.h"
+#include "types/cookie.h"
 #include "types/label.h"
 #include "types/tab.h"
 
@@ -14,5 +15,6 @@ extern Db* db;
 extern GameDict games;
 extern Gui* gui;
 extern Settings* settings;
+extern CookieDict cookies;
 extern LabelList labels;
 extern TabList tabs;

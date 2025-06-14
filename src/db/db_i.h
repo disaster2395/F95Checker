@@ -31,6 +31,9 @@ typedef struct {
         DbMessageType_SaveLabel,
         DbMessageType_CreateLabel,
         DbMessageType_DeleteLabel,
+
+        DbMessageType_LoadCookies,
+        DbMessageType_SaveCookies,
     } type;
     m_eflag_ptr eflag;
     union {
@@ -39,6 +42,7 @@ typedef struct {
             GameDict_ptr games;
             TabList_ptr tabs;
             LabelList_ptr labels;
+            CookieDict_ptr cookies;
         } load;
         union {
             struct {
@@ -57,6 +61,9 @@ typedef struct {
                 Label_ptr ptr;
                 LabelsColumn column;
             } label;
+            struct {
+                CookieDict_ptr ptr;
+            } cookies;
         } save;
         union {
             struct {
@@ -148,6 +155,9 @@ void db_do_load_labels(Db* db, LabelList_ptr labels);
 void db_do_save_label(Db* db, Label_ptr label, LabelsColumn column);
 Label_ptr db_do_create_label(Db* db, LabelList_ptr labels);
 void db_do_delete_label(Db* db, Label_ptr label, LabelList_ptr labels);
+
+void db_do_load_cookies(Db* db, CookieDict_ptr cookies);
+void db_do_save_cookies(Db* db, CookieDict_ptr cookies);
 
 #define sqlite3_column_count(pStmt)   (size_t)sqlite3_column_count(pStmt)
 #define sqlite3_column_text(pStmt, i) (const char*)sqlite3_column_text(pStmt, i)

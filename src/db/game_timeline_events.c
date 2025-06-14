@@ -34,7 +34,7 @@ void db_do_load_game_timeline_events(Db* db, GameDict_ptr games) {
     // Create the table and handle schema migrations
     db_create_table(db, &timeline_events_table);
 
-    // Read all labels
+    // Read all timeline events
     m_string_set(sql, "SELECT ");
     db_append_column_names(sql, &timeline_events_table);
     m_string_cat_printf(
@@ -129,7 +129,7 @@ GameTimelineEvent_ptr db_do_create_game_timeline_event(
     db_assert(db, res, SQLITE_OK, "sqlite3_bind_mstring()");
     json_object_put(arguments_json);
 
-    assert(sqlite3_column_count(stmt) == labels_table.columns_count);
+    assert(sqlite3_column_count(stmt) == timeline_events_table.columns_count);
     res = sqlite3_step(stmt);
     db_assert(db, res, SQLITE_ROW, "sqlite3_step()");
 

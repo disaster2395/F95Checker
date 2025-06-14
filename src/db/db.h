@@ -7,6 +7,7 @@
 
 #include "game/game.h"
 #include "settings/settings.h"
+#include "types/cookie.h"
 #include "types/label.h"
 #include "types/tab.h"
 
@@ -41,5 +42,8 @@ void db_load_labels(Db* db, LabelList_ptr labels);
 void db_save_label(Db* db, Label_ptr label, LabelsColumn column);
 Label_ptr db_create_label(Db* db, LabelList_ptr labels);
 void db_delete_label(Db* db, Label_ptr label, LabelList_ptr labels);
+
+void db_load_cookies(Db* db, CookieDict_ptr cookies);
+void db_save_cookies(Db* db, CookieDict_ptr cookies);
 
 void db_free(Db* db);

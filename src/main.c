@@ -12,6 +12,7 @@ Db* db;
 GameDict games;
 Gui* gui;
 Settings* settings;
+CookieDict cookies;
 LabelList labels;
 TabList tabs;
 
@@ -41,6 +42,9 @@ int32_t main(int32_t argc, char** argv) {
     game_dict_init(games);
     db_load_games(db, games);
 
+    cookie_dict_init(cookies);
+    db_load_cookies(db, cookies);
+
     gui = gui_init();
     if(gui == NULL) {
         ret = 1;
@@ -55,6 +59,8 @@ int32_t main(int32_t argc, char** argv) {
 exit_gui:
 
     db_free(db);
+
+    cookie_dict_clear(cookies);
 
     for each(GameDict_pair, pair, GameDict, games) {
         game_free(pair.value);
