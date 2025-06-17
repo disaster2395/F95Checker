@@ -8,4 +8,4 @@ void gui_backend_process_events(Gui* gui);
 void gui_backend_new_frame(Gui* gui);
 void gui_backend_render(Gui* gui);
 
-void gui_backend_shutdown(Gui* gui);
+void gui_backend_free(Gui* gui);

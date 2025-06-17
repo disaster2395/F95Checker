@@ -44,6 +44,6 @@ void gui_tick(Gui* gui) {
 
 void gui_free(Gui* gui) {
     gui_fonts_free(gui);
-    gui_backend_shutdown(gui);
+    gui_backend_free(gui);
     free(gui);
 }

@@ -2,7 +2,6 @@
 
 #include <dcimgui/dcimgui.h>
 #include <fonts/mdi.h>
-#include <glad/gl.h>
 #include <SDL3/SDL.h>
 
 #include <std.h>

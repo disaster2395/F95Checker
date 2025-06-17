@@ -1,11 +1,8 @@
 #include "backend.h"
 
-#include "gui.h"
-
 #include <dcimgui/backends/dcimgui_impl_opengl3.h>
 #include <dcimgui/backends/dcimgui_impl_sdl3.h>
-#include <dcimgui/dcimgui.h>
-#include <SDL3/SDL_opengl.h>
+#include <glad/gl.h>
 
 #include <globals.h>
 
@@ -175,7 +172,7 @@ void gui_backend_render(Gui* gui) {
     SDL_GL_SwapWindow(gui->window);
 }
 
-void gui_backend_shutdown(Gui* gui) {
+void gui_backend_free(Gui* gui) {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui_DestroyContext(NULL);
