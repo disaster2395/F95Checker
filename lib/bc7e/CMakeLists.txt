@@ -16,7 +16,7 @@ if(ISPC_FOUND)
         OUTPUT ${BC7E_OBJS} ${BC7E_HS}
         COMMAND ispc --PIC -g -O2 --woff --target=${BC7E_TARGET} --opt=fast-math --opt=disable-assertions "${BC7E_SRC}" -o "${BC7E_OBJ}" -h "${BC7E_H_REL}"
         DEPENDS "${BC7E_SRC}"
-        COMMENT "Building bc7e with ISPC"
+        COMMENT "Building ISPC library bc7e"
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     )
     add_library(bc7e STATIC "${BC7E_OBJS}")
