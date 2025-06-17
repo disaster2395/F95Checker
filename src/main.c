@@ -51,6 +51,12 @@ int32_t main(int32_t argc, char** argv) {
         goto exit_gui;
     }
 
+    // Draw first frame while hidden to avoid flashbang
+    gui_tick(gui);
+    if(!gui->window_hidden) {
+        SDL_ShowWindow(gui->window);
+    }
+
     while(!gui_should_close(gui)) {
         gui_tick(gui);
     }

@@ -55,5 +55,4 @@ void gui_fonts_init(Gui* gui) {
 
 void gui_fonts_free(Gui* gui) {
     ImFontAtlas_Clear(gui->io->Fonts);
-    memset(&gui->fonts, NULL, sizeof(gui->fonts));
 }
