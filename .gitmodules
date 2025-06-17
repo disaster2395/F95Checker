@@ -10,9 +10,6 @@
 [submodule "lib/vendor/dear_bindings"]
 	path = lib/vendor/dear_bindings
 	url = https://github.com/dearimgui/dear_bindings.git
-[submodule "lib/vendor/glad"]
-	path = lib/vendor/glad
-	url = https://github.com/Dav1dde/glad.git
 [submodule "lib/vendor/mlib"]
 	path = lib/vendor/mlib
 	url = https://github.com/P-p-H-d/mlib.git
