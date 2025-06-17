@@ -32,7 +32,7 @@ typedef struct {
     Datestamp last_launched;
     flt32_t score;
     uint32_t votes;
-    uint8_t rating;
+    flt32_t rating;
     m_string_t finished;
     m_string_t installed;
     bool updated;

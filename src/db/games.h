@@ -20,7 +20,7 @@
     COLUMN($, last_launched, .type = "INTEGER", .dflt = "0")                     \
     COLUMN($, score, .type = "REAL", .dflt = "0")                                \
     COLUMN($, votes, .type = "INTEGER", .dflt = "0")                             \
-    COLUMN($, rating, .type = "INTEGER", .dflt = "0")                            \
+    COLUMN($, rating, .type = "REAL", .dflt = "0")                               \
     COLUMN($, finished, .type = "TEXT", .dflt = "''")                            \
     COLUMN($, installed, .type = "TEXT", .dflt = "''")                           \
     COLUMN($, updated, .type = "INTEGER", .dflt = "NULL")                        \
