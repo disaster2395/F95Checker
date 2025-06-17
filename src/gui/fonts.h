@@ -2,4 +2,6 @@
 
 #include "gui.h"
 
-void gui_fonts_load(Gui* gui);
+void gui_fonts_init(Gui* gui);
+
+void gui_fonts_free(Gui* gui);

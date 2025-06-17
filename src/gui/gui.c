@@ -23,7 +23,7 @@ Gui* gui_init(void) {
     gui->style->ItemSpacing.x = gui->style->ItemSpacing.y;
     gui->style->Colors[ImGuiCol_ModalWindowDimBg] = (ImVec4){0.0f, 0.0f, 0.0f, 0.5f};
 
-    gui_fonts_load(gui);
+    gui_fonts_init(gui);
 
     return gui;
 }
@@ -43,6 +43,7 @@ void gui_tick(Gui* gui) {
 }
 
 void gui_free(Gui* gui) {
+    gui_fonts_free(gui);
     gui_backend_shutdown(gui);
     free(gui);
 }

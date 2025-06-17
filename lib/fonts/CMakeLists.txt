@@ -19,7 +19,7 @@ foreach(font_src IN LISTS fonts)
         OUTPUT "${font_dst}"
         COMMAND imgui_font_gen -u8 -nostatic "${font_src_rel}" "${font_symbol}" > "${font_dst}"
         DEPENDS imgui_font_gen "${font_src}"
-        COMMENT "Generating binary font for ${font_name}"
+        COMMENT "Generating embedded font ${font_name}"
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     )
     # Append declaration

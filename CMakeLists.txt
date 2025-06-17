@@ -117,7 +117,7 @@ endif()
 target_link_libraries(dcimgui PRIVATE glad)
 target_link_libraries(F95Checker PRIVATE dcimgui)
 
-# Fonts (generate compressed C sources)
+# Fonts (generate embedded C sources)
 add_subdirectory("${FONTS_DIR}")
 target_link_libraries(F95Checker PRIVATE fonts)
 
