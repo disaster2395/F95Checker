@@ -39,6 +39,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 file(CREATE_LINK "${CMAKE_CURRENT_BINARY_DIR}" "${BUILD_DIR}/current" SYMBOLIC)
 
 # Global compiler flags
+add_compile_options(-fdiagnostics-color=always)  # Color output with Ninja
 add_compile_options(-fexceptions)  # Interop with C++ exceptions
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-O0)  # Better debugging experience
@@ -126,7 +127,9 @@ target_link_libraries(F95Checker PRIVATE icons)
 # SQLite
 if(F95CHECKER_VENDORED_SQLITE3)
     add_subdirectory("${SQLITE3_DIR}" EXCLUDE_FROM_ALL)
-    target_compile_options(sqlite3 PRIVATE -Wno-stringop-overread)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(sqlite3 PRIVATE -Wno-stringop-overread)
+    endif()
     target_link_libraries(F95Checker PRIVATE sqlite3)
 else()
     find_package(SQLite3 REQUIRED)
@@ -151,7 +154,9 @@ if(F95CHECKER_VENDORED_WOLFSSL)
         set(WOLFSSL_CURL ON)
     endif()
     add_subdirectory("${WOLFSSL_DIR}" EXCLUDE_FROM_ALL)
-    target_compile_options(wolfssl PRIVATE -Wno-stringop-overflow)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(wolfssl PRIVATE -Wno-stringop-overflow)
+    endif()
     target_link_libraries(F95Checker PRIVATE wolfssl)
 else()
     find_package(WolfSSL REQUIRED)
@@ -206,9 +211,11 @@ add_custom_target(run
     COMMAND ./F95Checker
     DEPENDS F95Checker
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    USES_TERMINAL
 )
 add_custom_target(gdb
     COMMAND gdb -q ./F95Checker
     DEPENDS F95Checker
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    USES_TERMINAL
 )

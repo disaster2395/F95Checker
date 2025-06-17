@@ -10,22 +10,22 @@
             "name": "debug",
             "displayName": "Debug",
             "binaryDir": "build/debug",
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
             }
         },
         {
             "name": "release",
             "displayName": "Release",
             "binaryDir": "build/release",
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
             }
         }
     ],
