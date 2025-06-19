@@ -14,6 +14,13 @@ Db* db_init(void) {
     Db* db = malloc(sizeof(Db));
     int32_t res;
 
+    res = sqlite3_initialize();
+    if(res != SQLITE_OK) {
+        custom_perror("sqlite3_initialize()", sqlite3_errstr(res));
+        free(db);
+        return NULL;
+    }
+
     db->path = path_init_data_dir();
     path_join(db->path, DB_FILE);
     res = sqlite3_open(path_cstr(db->path), &db->conn);
@@ -651,5 +658,6 @@ void db_free(Db* db) {
     free((char*)db->name);
     sqlite3_close(db->conn);
     path_free(db->path);
+    sqlite3_shutdown();
     free(db);
 }

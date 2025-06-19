@@ -1,10 +1,9 @@
 {
     "editor.formatOnSave": true,
     "clangd.arguments": [
-        "--compile-commands-dir=${workspaceFolder}/build/current",
+        "--compile-commands-dir=${workspaceFolder}/build",
         "--clang-tidy",
         "--header-insertion=never",
     ],
-    "cmake.configureOnEdit": false,
-    "cmake.configureOnOpen": false,
+    "mesonbuild.configureOnOpen": false,
 }

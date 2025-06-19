@@ -1,7 +1,7 @@
 #include "window.h"
 
-#include <dcimgui/backends/dcimgui_impl_opengl3.h>
-#include <dcimgui/backends/dcimgui_impl_sdl3.h>
+#include <dcimgui/dcimgui_impl_opengl3.h>
+#include <dcimgui/dcimgui_impl_sdl3.h>
 #include <glad/gl.h>
 
 #include <globals.h>

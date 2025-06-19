@@ -1,0 +1,5 @@
+option('python_venv',      type: 'boolean', value: true, description: 'Use a dedicated python venv instead of system python, requirements are auto-installed')
+option('vendored_curl',    type: 'boolean', value: true, description: 'Statically build and link cURL, will not require cURL on target system to run')
+option('vendored_sdl3',    type: 'boolean', value: true, description: 'Statically build and link SDL3, will not require SDL3 on target system to run')
+option('vendored_sqlite3', type: 'boolean', value: true, description: 'Statically build and link SQLite3, will not require SQLite3 on target system to run')
+option('vendored_wolfssl', type: 'boolean', value: true, description: 'Statically build and link wolfSSL, will not require wolfSSL on target system to run')

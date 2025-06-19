@@ -1,30 +1,30 @@
-[submodule "lib/vendor/imgui"]
-	path = lib/vendor/imgui
+[submodule "subprojects/dcimgui/imgui"]
+	path = subprojects/dcimgui/imgui
 	url = https://github.com/ocornut/imgui.git
-[submodule "lib/vendor/sdl3"]
-	path = lib/vendor/sdl3
+[submodule "subprojects/sdl3"]
+	path = subprojects/sdl3
 	url = https://github.com/libsdl-org/SDL.git
-[submodule "lib/vendor/curl"]
-	path = lib/vendor/curl
+[submodule "subprojects/curl"]
+	path = subprojects/curl
 	url = https://github.com/curl/curl.git
-[submodule "lib/vendor/dear_bindings"]
-	path = lib/vendor/dear_bindings
+[submodule "subprojects/dcimgui/dear_bindings"]
+	path = subprojects/dcimgui/dear_bindings
 	url = https://github.com/dearimgui/dear_bindings.git
-[submodule "lib/vendor/mlib"]
-	path = lib/vendor/mlib
+[submodule "subprojects/mlib"]
+	path = subprojects/mlib
 	url = https://github.com/P-p-H-d/mlib.git
-[submodule "lib/vendor/cwalk"]
-	path = lib/vendor/cwalk
+[submodule "subprojects/cwalk"]
+	path = subprojects/cwalk
 	url = https://github.com/likle/cwalk.git
-[submodule "lib/vendor/json-c"]
-	path = lib/vendor/json-c
+[submodule "subprojects/json-c"]
+	path = subprojects/json-c
 	url = https://github.com/json-c/json-c.git
-[submodule "lib/vendor/bc7e"]
-	path = lib/vendor/bc7e
+[submodule "subprojects/bc7e/bc7e_ispc"]
+	path = subprojects/bc7e/bc7e_ispc
 	url = https://github.com/BinomialLLC/bc7e.git
-[submodule "lib/vendor/wolfssl"]
-	path = lib/vendor/wolfssl
+[submodule "subprojects/wolfssl"]
+	path = subprojects/wolfssl
 	url = https://github.com/wolfSSL/wolfssl.git
-[submodule "lib/vendor/shlex_cpp"]
-	path = lib/vendor/shlex_cpp
+[submodule "subprojects/shlex/shlex_cpp"]
+	path = subprojects/shlex/shlex_cpp
 	url = https://github.com/shogo82148/shlex.cpp.git
