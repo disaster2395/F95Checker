@@ -48,16 +48,33 @@ static void db_parse_game(Db* db, sqlite3_stmt* stmt, Game* game) {
         json_object* executables_json = json_tokener_parse(executables_text);
         for(size_t i = 0; i < json_object_array_length(executables_json); i++) {
             json_object* executable = json_object_array_get_idx(executables_json, i);
-            m_string_t executable_str;
-            m_string_init_set(executable_str, json_object_get_string(executable));
-            m_string_list_push_back_move(game->executables, &executable_str);
+            if(json_object_is_type(executable, json_type_array)) {
+                m_string_list_t executable_args;
+                m_string_list_init(executable_args);
+                for(size_t j = 0; j < json_object_array_length(executable); j++) {
+                    json_object* executable_arg = json_object_array_get_idx(executable, j);
+                    m_string_t executable_arg_str;
+                    m_string_init_set(executable_arg_str, json_object_get_string(executable_arg));
+                    m_string_list_push_back_move(executable_args, &executable_arg_str);
+                }
+                game_executable_list_push_back_move(game->executables, &executable_args);
+            } else {
+                m_string_list_t executable_args;
+                m_string_list_init(executable_args);
+                m_string_t executable_arg_str;
+                m_string_init_set(executable_arg_str, json_object_get_string(executable));
+                m_string_list_push_back_move(executable_args, &executable_arg_str);
+                game_executable_list_push_back_move(game->executables, &executable_args);
+            }
         }
         json_object_put(executables_json);
     } else if(executables_text[0] != '\0') {
-        printf("%s\n", executables_text);
-        m_string_t executable_str;
-        m_string_init_set(executable_str, executables_text);
-        m_string_list_push_back_move(game->executables, &executable_str);
+        m_string_list_t executable_args;
+        m_string_list_init(executable_args);
+        m_string_t executable_arg_str;
+        m_string_init_set(executable_arg_str, executables_text);
+        m_string_list_push_back_move(executable_args, &executable_arg_str);
+        game_executable_list_push_back_move(game->executables, &executable_args);
     }
 
     m_string_set(game->description, sqlite3_column_text(stmt, col++));
@@ -305,10 +322,14 @@ void db_do_save_game(Db* db, Game* game, GamesColumn column) {
         break;
     case GamesColumn_executables:
         json_object* executables_json = json_object_new_array();
-        for each(m_string_ptr, executable, m_string_list_t, game->executables) {
-            json_object_array_add(
-                executables_json,
-                json_object_new_string(m_string_get_cstr(executable)));
+        for each(m_string_list_ptr, executable, GameExecutableList, game->executables) {
+            json_object* executable_json = json_object_new_array();
+            for each(m_string_ptr, executable_arg, m_string_list_t, executable) {
+                json_object_array_add(
+                    executable_json,
+                    json_object_new_string(m_string_get_cstr(executable_arg)));
+            }
+            json_object_array_add(executables_json, executable_json);
         }
         res = sqlite3_bind_json(stmt, 1, executables_json);
         json_object_put(executables_json);

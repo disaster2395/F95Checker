@@ -11,7 +11,7 @@ Game* game_init(void) {
     m_string_init(game->finished);
     m_string_init(game->installed);
 
-    m_string_list_init(game->executables);
+    game_executable_list_init(game->executables);
 
     m_string_init(game->description);
     m_string_init(game->changelog);
@@ -46,7 +46,7 @@ void game_free(Game* game) {
     m_string_clear(game->finished);
     m_string_clear(game->installed);
 
-    m_string_list_clear(game->executables);
+    game_executable_list_clear(game->executables);
 
     m_string_clear(game->description);
     m_string_clear(game->changelog);

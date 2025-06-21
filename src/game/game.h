@@ -37,7 +37,7 @@ typedef struct {
     m_string_t installed;
     bool updated;
     bool archived;
-    m_string_list_t executables;
+    GameExecutableList executables;
     m_string_t description;
     m_string_t changelog;
     m_bitset_t tags;

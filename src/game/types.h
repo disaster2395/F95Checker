@@ -26,6 +26,9 @@ M_TUPLE_EX_DEF(game_download, GameDownload, (text, m_string_t), (links, GameDown
 M_LIST_DUAL_PUSH_EX_DEF(game_download_list, GameDownloadList, GameDownload)
 #define M_OPL_GameDownloadList() M_LIST_DUAL_PUSH_EX_OPL(game_download_list, GameDownload)
 
+M_LIST_DUAL_PUSH_EX_DEF(game_executable_list, GameExecutableList, m_string_list_t)
+#define M_OPL_GameExecutableList() M_LIST_DUAL_PUSH_EX_OPL(game_executable_list, m_string_list_t)
+
 M_TUPLE_EX_DEF(
     game_review,
     GameReview,
