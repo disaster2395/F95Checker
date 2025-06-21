@@ -21,11 +21,13 @@ sources += custom_target(
         # Meson is picky and *only* allows outputs directly in the build dir with custom_target()
         # So wrap it with python and move the files to please Meson
         python_exe, '-c',
-        'import os, pathlib, shutil, subprocess, sys;'+
+        'import pathlib, shutil, subprocess, sys;'+
         'glad = pathlib.Path(sys.argv[1]);'+
         'subprocess.run(sys.argv[2:]);'+
         '(glad / "src/gl.c").rename(glad / "gl.c");'+
-        '(glad / "src").rmdir();',
+        '(glad / "src").rmdir();'+
+        'shutil.copyfile(glad / "include/glad/gl.h", glad / "gl.h");'+
+        'shutil.copyfile(glad / "include/KHR/khrplatform.h", glad / "khrplatform.h");',
         build_dir,
         # Actual command here
         python_exe,

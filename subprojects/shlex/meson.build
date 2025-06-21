@@ -4,7 +4,7 @@ source_dir = meson.current_source_dir()
 build_dir = meson.current_build_dir()
 include_dirs = include_directories('.')
 compile_args = [
-    '-I' + (source_dir / '..'),
+    '-I' + (source_dir / '..'),  # For <std.h>
 ]
 
 sources = ['shlex.cpp', 'shlex.h']

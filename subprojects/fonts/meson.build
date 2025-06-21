@@ -1,4 +1,4 @@
-project('fonts', 'c', meson_version: '>=1.1.0')
+project('fonts', 'c')
 fs = import('fs')
 
 glob = find_program('meson-glob')

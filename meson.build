@@ -2,7 +2,7 @@ project(
     'F95Checker', 'c',
     version: '12.0.0',
     license: 'GPL-3.0',
-    meson_version: '>=1.3.0',
+    meson_version: '>=1.2.0',
     default_options: {
         'backend': 'ninja',
         'default_library': 'static',

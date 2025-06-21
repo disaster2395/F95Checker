@@ -1,4 +1,4 @@
-project('icons', 'c', meson_version: '>=1.1.0')
+project('icons', 'c')
 fs = import('fs')
 
 glob = find_program('meson-glob')

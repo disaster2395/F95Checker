@@ -1,4 +1,4 @@
-project('dcimgui', 'cpp', meson_version: '>=1.1.0')
+project('dcimgui', 'cpp')
 
 glob = find_program('meson-glob')
 python_exe = find_program('python3-maybe-venv')
