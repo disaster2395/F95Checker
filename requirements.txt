@@ -48,6 +48,7 @@ bencode2==0.3.17
 pillow==11.0.0
 pillow-avif-plugin==1.4.6
 zstd==1.5.6.2
+python-dateutil==2.9.0.post0
 
 # Proxy support
 python-socks[asyncio]==2.5.3

@@ -10,24 +10,25 @@ import pathlib
 import pickle
 import platform
 import re
-import string
 import sys
 import threading
 import time
 import tomllib
 
+import OpenGL
+import OpenGL.GL as gl
+import aiohttp
+import glfw
+import imgui
 from PIL import Image
 from PyQt6 import (
     QtCore,
     QtGui,
     QtWidgets,
 )
-import aiohttp
-import glfw
-import imgui
-import OpenGL
-import OpenGL.GL as gl
+from dateutil.relativedelta import relativedelta
 
+from common import parser
 from common.structs import (
     APIType,
     Browser,
@@ -52,7 +53,6 @@ from common.structs import (
     Timestamp,
     Type,
 )
-from common import parser
 from external import (
     async_thread,
     error,
@@ -1359,6 +1359,31 @@ class MainGUI():
         if imgui.is_item_clicked(imgui.MOUSE_BUTTON_MIDDLE):
             callbacks.clipboard_copy(game.name)
 
+    def draw_game_updated_text(self, game: Game):
+        def __draw_colored(text, r, g, b):
+            imgui.same_line(0, 0)
+            imgui.text(" (")
+            imgui.same_line(0, 0)
+            imgui.text_colored(game.last_updated.now_delta, r, g, b, 1)
+            imgui.same_line(0, 0)
+            imgui.text(")".ljust(12 - len(game.last_updated.now_delta)))
+
+        if game.last_updated.display:
+            imgui.text(game.last_updated.display)
+
+            diff = relativedelta(dt.datetime.today(), dt.datetime.fromtimestamp(game.last_updated.value))
+
+            if diff.years < 1 and diff.months < 1:
+                __draw_colored(game.last_updated.now_delta, 1, 1, 1)
+            elif diff.years < 1 and diff.months < 6:
+                __draw_colored(game.last_updated.now_delta, 0, 1, 0)
+            elif diff.years < 1:
+                __draw_colored(game.last_updated.now_delta, 1, 1, 0)
+            else:
+                __draw_colored(game.last_updated.now_delta, 1, 0, 0)
+        else:
+            imgui.text("Unknown")
+
     def draw_game_finished_checkbox(self, game: Game, label=""):
         if game:
             installed_finished = game.finished == (game.installed or game.version)
@@ -2295,7 +2320,7 @@ class MainGUI():
                 imgui.table_next_column()
                 imgui.text_disabled("Last Updated:")
                 imgui.same_line()
-                imgui.text(game.last_updated.display or "Unknown")
+                self.draw_game_updated_text(game)
 
                 imgui.table_next_row()
 
@@ -3364,7 +3389,7 @@ class MainGUI():
                             imgui.text(game.developer or "Unknown")
                         case cols.last_updated.index:
                             imgui.push_font(imgui.fonts.mono)
-                            imgui.text(game.last_updated.display or "Unknown")
+                            self.draw_game_updated_text(game)
                             imgui.pop_font()
                         case cols.last_launched.index:
                             imgui.push_font(imgui.fonts.mono)
@@ -3488,7 +3513,7 @@ class MainGUI():
             ),
             (  # Clustered data
                 imgui.style.item_spacing.x +  # Between text
-                imgui.calc_text_size(f"{cols.last_updated.name[0]}00/00/0000").x  # Text
+                imgui.calc_text_size(f"{cols.last_updated.name[0]}00/00/0000 (00y 00m 00d)").x  # Text
             )
         )
 
@@ -3648,7 +3673,7 @@ class MainGUI():
             _cluster_text(cols.score.name, f"{game.score:.1f} ({game.votes})")
             self.draw_hover_text(f"Weighted: {utils.bayesian_average(game.score, game.votes):.2f}", text=None)
         if cols.last_updated.enabled:
-            _cluster_text(cols.last_updated.name, game.last_updated.display or "Unknown")
+            self.draw_game_updated_text(game)
         if cols.last_launched.enabled:
             _cluster_text(cols.last_launched.name, game.last_launched.display or "Never")
         if cols.added_on.enabled:

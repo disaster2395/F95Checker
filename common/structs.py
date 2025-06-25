@@ -5,8 +5,8 @@ import enum
 import functools
 import hashlib
 import json
-import multiprocessing.queues
 import multiprocessing
+import multiprocessing.queues
 import os
 import pathlib
 import queue
@@ -15,6 +15,8 @@ import sys
 import time
 import typing
 import weakref
+
+from dateutil.relativedelta import relativedelta
 
 from external import weakerset
 from modules import colors
@@ -263,6 +265,41 @@ class Datestamp(Timestamp):
     def format(self):
         from modules import globals
         return globals.settings.datestamp_format
+
+
+class DatestampWithDelta(Datestamp):
+    instances = weakerset.WeakerSet()
+
+    __slots__ = ("_delta", "_now_day")
+
+    def __init__(self, unix_time: int | float):
+        self.update(unix_time)
+        type(self).instances.add(self)
+
+    def update(self, unix_time: int | float = None):
+        super().update(unix_time)
+        self._delta = None
+        self._now_day = None
+
+    @property
+    def now_delta(self):
+        now_day = dt.datetime.today().day
+        if self._delta is None or now_day != self._now_day:
+            self._now_day = now_day
+            if self.value == 0:
+                self._delta = ""
+            else:
+                r_delta = relativedelta(dt.datetime.now(), dt.datetime.fromtimestamp(self.value))
+                self._delta = " ".join(
+                    filter(
+                        lambda x: x is not None, [
+                            f"{r_delta.years}y" if r_delta.years else None,
+                            f"{r_delta.months}m" if r_delta.months else None,
+                            f"{r_delta.days}d" if r_delta.days else None,
+                        ]
+                    )
+                )
+        return self._delta or "0d"
 
 
 class DefaultStyle:
@@ -980,7 +1017,7 @@ class Game:
     status             : Status
     url                : str
     added_on           : Datestamp
-    last_updated       : Datestamp
+    last_updated       : DatestampWithDelta
     last_full_check    : int
     last_check_version : str
     last_launched      : Datestamp
