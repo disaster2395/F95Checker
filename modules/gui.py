@@ -2960,6 +2960,22 @@ class MainGUI():
                 )[0]:
                     new_tab = None
                     imgui.end_tab_item()
+
+                    # Pop-up for default tab
+                    if not utils.is_refreshing() and imgui.begin_popup_context_item("###tab_default_context"):
+                        imgui.align_text_to_frame_padding()
+                        imgui.text(f" {icons.reload_alert}")
+                        imgui.same_line()
+                        if imgui.button(f"Full refresh", width=150.0):
+                            utils.start_refresh_task(api.refresh(
+                                *[game for game in globals.games.values() if game.tab is None],
+                                full=True,
+                                force_archived=True,
+                                force_completed=True,
+                            ))
+                            imgui.close_current_popup()
+                        imgui.end_popup()
+
                 swap = None
                 for tab_i, tab in enumerate(Tab.instances):
                     count = len(self.show_games_ids.get(tab, ()))
@@ -3054,6 +3070,18 @@ class MainGUI():
                                 )
                             else:
                                 close_callback()
+                        imgui.align_text_to_frame_padding()
+                        if not utils.is_refreshing():
+                            imgui.text(f" {icons.reload_alert}")
+                            imgui.same_line()
+                            if imgui.button(f"Full refresh", width=imgui.get_content_region_available_width()):
+                                utils.start_refresh_task(api.refresh(
+                                    *[game for game in globals.games.values() if game.tab == tab],
+                                    full=True,
+                                    force_archived=True,
+                                    force_completed=True,
+                                ))
+                                imgui.close_current_popup()
                         imgui.end_popup()
                 imgui.end_tab_bar()
                 if swap:
