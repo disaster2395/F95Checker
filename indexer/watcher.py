@@ -14,7 +14,7 @@ from indexer import (
 )
 
 WATCH_UPDATES_INTERVAL = dt.timedelta(minutes=5).total_seconds()
-WATCH_UPDATES_CATEGORIES = f95zone.LATEST_CATEGORIES
+WATCH_UPDATES_CATEGORIES = f95zone.LATEST_UPDATES_CATEGORIES
 WATCH_UPDATES_PAGES = 4
 WATCH_VERSIONS_INTERVAL = dt.timedelta(hours=12).total_seconds()
 WATCH_VERSIONS_CHUNK_SIZE = 1000
@@ -55,7 +55,7 @@ async def poll_updates():
 
                 try:
                     async with f95zone.session.get(
-                        f95zone.LATEST_URL.format(
+                        f95zone.LATEST_UPDATES_URL.format(
                             cmd="list",
                             cat=category,
                             page=page,
@@ -77,9 +77,7 @@ async def poll_updates():
                 try:
                     updates = json.loads(res)
                 except Exception:
-                    raise Exception(
-                        f"Latest updates returned invalid JSON: {res}"
-                    )
+                    raise Exception(f"Latest updates returned invalid JSON: {res}")
                 if index_error := f95zone.check_error(updates, logger):
                     raise Exception(index_error)
 
@@ -162,9 +160,7 @@ async def poll_updates():
             # )
             # continue
         else:
-            logger.error(
-                f"Error polling updates: {error.text()}\n{error.traceback()}"
-            )
+            logger.error(f"Error polling updates: {error.text()}\n{error.traceback()}")
 
 
 async def watch_updates():
@@ -179,9 +175,7 @@ async def poll_versions():
     try:
         logger.info("Poll versions start")
 
-        names = [
-            n async for n in cache.redis.scan_iter("thread:*", 10000, "hash")
-        ]
+        names = [n async for n in cache.redis.scan_iter("thread:*", 10000, "hash")]
         invalidate_cache = cache.redis.pipeline()
 
         for names_chunk in chunks(names, WATCH_VERSIONS_CHUNK_SIZE):
@@ -198,7 +192,7 @@ async def poll_versions():
 
             try:
                 async with f95zone.session.get(
-                    f95zone.VERCHK_URL.format(threads=csv),
+                    f95zone.BULK_VERSION_CHECK_URL.format(threads=csv),
                 ) as req:
                     # Await together for efficiency
                     res, cached_data = await asyncio.gather(
@@ -246,9 +240,7 @@ async def poll_versions():
         if len(invalidate_cache):
             result = await invalidate_cache.execute()
             invalidated = sum(ret != "0" for ret in result)
-            logger.warning(
-                f"Versions: Invalidated cache for {invalidated} threads"
-            )
+            logger.warning(f"Versions: Invalidated cache for {invalidated} threads")
 
         logger.info("Poll versions done")
 
@@ -269,9 +261,7 @@ async def poll_versions():
             # )
             # continue
         else:
-            logger.error(
-                f"Error polling versions: {error.text()}\n{error.traceback()}"
-            )
+            logger.error(f"Error polling versions: {error.text()}\n{error.traceback()}")
 
 
 async def watch_versions():

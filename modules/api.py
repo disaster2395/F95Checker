@@ -450,53 +450,61 @@ def cleanup_temp_files():
             pass
 
 
-latest_updates_search_redis_stopwords = [
-    "a",
-    "is",
-    "the",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "but",
-    "by",
-    "for",
-    "if",
-    "in",
-    "into",
-    "it",
-    "no",
-    "not",
-    "of",
-    "on",
-    "or",
-    "such",
-    "that",
-    "their",
-    "then",
-    "there",
-    "these",
-    "they",
-    "this",
-    "to",
-    "was",
-    "will",
-    "with",
-]
 def latest_updates_search_sanitize_query(query: str):
+    redis_stopwords = (
+        "a",
+        "is",
+        "the",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "but",
+        "by",
+        "for",
+        "if",
+        "in",
+        "into",
+        "it",
+        "no",
+        "not",
+        "of",
+        "on",
+        "or",
+        "such",
+        "that",
+        "their",
+        "then",
+        "there",
+        "these",
+        "they",
+        "this",
+        "to",
+        "was",
+        "will",
+        "with",
+    )
     query = query.encode("ascii", errors="replace").decode()
     query = re.sub(r"\.+ | \.+", " ", query)
-    for char in "?&/':;-.":
+    for char in "?&/':;-.+!~()":
         query = query.replace(char, " ")
-    query = re.sub(r"\s+", " ", query).strip()[:30]
+    query = re.sub(r"\s+", " ", query).strip()
     words = query.split(" ")
-    for stopword in latest_updates_search_redis_stopwords:
+    for stopword in redis_stopwords:
         for word in words.copy():
             if word.lower() == stopword:
                 words.remove(word)
-    query = " ".join(words)
+    query = ""
+    while words:
+        append = f"{' ' if query else ''}{words.pop(0)}"
+        if len(query + append) > 30:
+            append = append[: 30 - len(query)]
+            if len(append) > 3 and append.strip().lower() not in redis_stopwords:
+                query += append
+            break
+        query += append
     return query
 
 
