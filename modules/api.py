@@ -490,11 +490,12 @@ def latest_updates_search_sanitize_query(query: str):
     query = re.sub(r"\.+ | \.+", " ", query)
     for char in "?&/':;-.":
         query = query.replace(char, " ")
-    query = re.sub(r"\s+", " ", query).strip()
+    query = re.sub(r"\s+", " ", query).strip()[:30]
     words = query.split(" ")
     for stopword in latest_updates_search_redis_stopwords:
-        while stopword in words:
-            words.remove(stopword)
+        for word in words.copy():
+            if word.lower() == stopword:
+                words.remove(word)
     query = " ".join(words)
     return query
 
