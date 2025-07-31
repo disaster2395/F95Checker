@@ -83,9 +83,12 @@ async def thread(id: int) -> dict[str, str] | f95zone.IndexerError | None:
         query = re.sub(r"\.+ | \.+", " ", query)
         for char in "?&/':;-":
             query = query.replace(char, " ")
-        query = re.sub(r"\s+", " ", query).strip()[:28]
-        if len(words := query.split(" ")) > 2 and len(words[-1]) < 3:
-            query = " ".join(words[:-1])
+        query = re.sub(r"\s+", " ", query).strip()
+        words = query.split(" ")
+        for stopword in f95zone.LATEST_STOPWORDS:
+            while stopword in words:
+                words.remove(stopword)
+        query = " ".join(words)
         for category in f95zone.LATEST_CATEGORIES:
 
             try:
