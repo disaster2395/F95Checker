@@ -185,9 +185,10 @@ def latest_updates_search_sanitize_query(query: str):
         "will",
         "with",
     )
+    query = re.sub(r"’s |'s ", " ", query)
     query = query.encode("ascii", errors="replace").decode()
     query = re.sub(r"\.+ | \.+", " ", query)
-    for char in "?&/':;-.+!~()":
+    for char in "?&/':;-.+!~(),*":
         query = query.replace(char, " ")
     query = re.sub(r"\s+", " ", query).strip()
     words = query.split(" ")
