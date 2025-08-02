@@ -577,7 +577,7 @@ def open_search_popup(query: str):
             async_thread.run(_f95zone_run_search())
 
         if real_query != ran_query:
-            imgui.text_disabled("Note: the real search query is different because Latest Updates struggles seraching some words/symbols")
+            imgui.text_disabled("Note: the real search query is different because Latest Updates struggles searching some words/symbols")
         if results:
             imgui.text("Click on any of the results to add it, click Ok when you're finished.")
             imgui.text(f"Latest Updates search results for {searches[ran_search].lower()} '{real_query}' in {categories[ran_category].lower()} category:")
