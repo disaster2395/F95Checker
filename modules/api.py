@@ -1553,7 +1553,7 @@ def open_ddl_popup(game: Game):
                         async_thread.run(_copy_ddl_link(results["session"], ddl_file))
                     globals.gui.draw_hover_text(f"Copy download link to clipboard", text=None)
                     imgui.same_line()
-                    if already_downloading := ddl_file.filename in downloads:
+                    if already_downloading := f"{game.id}/{ddl_file.filename}" in downloads:
                         imgui.push_disabled()
                     if imgui.button(icons.download_multiple):
                         async def _download_ddl_link(session_id: str, file: DdlFile):
