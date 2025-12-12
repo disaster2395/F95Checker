@@ -65,6 +65,7 @@ zip_exclude_packages = [
 ] + (["PyQt6"] if sys.platform.startswith("win") else [])
 optimize = 2
 silent_level = 0
+replace_paths = [("*", "")]
 include_msvcr = True
 
 
@@ -165,6 +166,7 @@ cx_Freeze.setup(
             "zip_exclude_packages": zip_exclude_packages,
             "optimize": optimize,
             "silent_level": silent_level,
+            "replace_paths": replace_paths,
             "include_msvcr": include_msvcr,
         },
         "bdist_mac": {
