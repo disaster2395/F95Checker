@@ -30,6 +30,9 @@ RATELIMIT_API_ERRORS = (
     "You have been temporarily blocked because of a large amount of requests, please try again later",
 )
 TEMP_ERROR_MESSAGES = (
+    b'<div id="cf-error-details" class="p-0">',
+    b"<b>504 - Gateway Timeout .</b>",
+    b'<body data-template="error">',
     b"<title>502 Bad Gateway</title>",
     b"<title>Error 502</title>",
     b"An unexpected error occurred. Please try again later.",
@@ -68,7 +71,7 @@ class IndexerError:
 
 
 ERROR_SESSION_LOGGED_OUT = IndexerError(
-    "SESSION_LOGGED_OUT", dt.timedelta(hours=2).total_seconds()
+    "SESSION_LOGGED_OUT", dt.timedelta(minutes=15).total_seconds()
 )
 ERROR_F95ZONE_RATELIMIT = IndexerError(
     "F95ZONE_RATELIMIT", dt.timedelta(minutes=15).total_seconds()
