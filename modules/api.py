@@ -90,6 +90,8 @@ f95_ratelimit_forum_errors = (
     b"<title>DDOS-GUARD</title>",
 )
 f95_temp_error_messages = (
+    b'<div id="cf-error-details" class="p-0">',
+    b"<b>504 - Gateway Timeout .</b>",
     b"<title>502 Bad Gateway</title>",
     b"<title>Error 502</title>",
     b"An unexpected error occurred. Please try again later.",
@@ -97,6 +99,9 @@ f95_temp_error_messages = (
     b"<!-- Connection refused -->",
     b"<!-- Too many connections -->",
     b"<p>Automated backups are currently executing. During this time, the site will be unavailable</p>",
+    b"<title>F95Zone :: Scheduled Maintenance</title>",
+    b'<script src="https://static.f95zone.to/assets/SamF95/ErrorPage',
+    b'<div class="blockMessage"><p>Please check back in 10 mins</p></div>',
 )
 
 api_host = os.environ.get("F95INDEXER_URL") or "https://api.f95checker.dev"
@@ -298,15 +303,30 @@ async def fetch(method: str, url: str, **kwargs):
 
 def raise_f95zone_error(res: bytes | dict, return_login=False):
     if isinstance(res, bytes):
-        if any(msg in res for msg in f95_login_error_messages):
-            if return_login:
-                return False
-            raise msgbox.Exc(
-                "Login expired",
-                "Your F95zone login session has expired,\n"
-                "press try again to login.",
-                MsgBox.warn
-            )
+        if b'<body data-template="error">' in res:
+            try:
+                html = parser.html(res)
+                message = (
+                    html.select_one(".p-body-pageContent .blockMessage")
+                    .get_text()
+                    .strip()
+                )
+            except Exception:
+                message = None
+            if message:
+                raise msgbox.Exc(
+                    "Forum error",
+                    "The F95zone Forum returned a temporary error with the following message:\n"
+                    f"{message}",
+                    MsgBox.error
+                )
+            else:
+                raise msgbox.Exc(
+                    "Forum error",
+                    "The F95zone Forum returned a temporary error that could not be parsed.",
+                    MsgBox.error,
+                    more=str(res)
+                )
         if any(msg in res for msg in f95_ratelimit_forum_errors):
             raise msgbox.Exc(
                 "Rate limit",
@@ -319,6 +339,15 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 "Server downtime",
                 "F95zone servers are currently unreachable,\n"
                 "please retry in a few minutes.",
+                MsgBox.warn
+            )
+        if any(msg in res for msg in f95_login_error_messages):
+            if return_login:
+                return False
+            raise msgbox.Exc(
+                "Login expired",
+                "Your F95zone login session has expired,\n"
+                "press try again to login.",
                 MsgBox.warn
             )
         return True
