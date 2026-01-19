@@ -75,11 +75,17 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
             if head.find("span", text=f"{name}"):
                 return True
         return False
-    def get_game_attr(*names: list[str]):
+    def get_game_attr(*names: str) -> str:
         for name in names:
             if match := re.search(r"^ *" + name + r" *(?: *\n? *:|: *\n? *) *(.*)", plain, flags=re.RegexFlag.MULTILINE | re.RegexFlag.IGNORECASE):
                 return fixed_spaces(match.group(1))
         return ""
+    def get_game_attrs(*names: str) -> list[str]:
+        return [
+            match.group(1)
+            for name in names
+            if (match := re.search(r"^ *" + name + r" *(?: *\n? *:|: *\n? *) *(.*)", plain, flags=re.RegexFlag.MULTILINE | re.RegexFlag.IGNORECASE))
+        ]
     def get_long_game_attr(*names: list[str]):
         value_regex = ""
         for name in names:
@@ -303,20 +309,39 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
         else:
             status = Status.Normal
 
-        last_updated = 0
-        text = get_game_attr("thread updated", "updated", "release date").replace("/", "-")
+        possible_update_dates_in_text = [
+            text.replace("/", "-")
+            for text in
+            get_game_attrs("release date", "thread updated", "updated")
+            if text
+        ]
+        possible_update_dates: list[float] = []
+        post_edited_at = 0
+        post_not_edited = False
         try:
-            last_updated = dt.datetime.fromisoformat(text).timestamp()
-        except ValueError:
+            if elem := post.find(is_class("message-lastEdit")):
+                post_edited_at, post_not_edited = int(elem.find("time").get("data-time")), False
+            else:
+                post_edited_at, post_not_edited = (
+                    int(post.find(is_class("message-attribution-main")).find("time").get("data-time")),
+                    True
+                )
+        except Exception:
             pass
-        if not last_updated:
+        max_date = post_edited_at or dt.datetime.now().timestamp()
+
+        for txt_date in possible_update_dates_in_text:
             try:
-                if elem := post.find(is_class("message-lastEdit")):
-                    last_updated = int(elem.find("time").get("data-time"))
-                else:
-                    last_updated = int(post.find(is_class("message-attribution-main")).find("time").get("data-time"))
-            except Exception:
+                if (
+                    (parsed_data := dt.datetime.fromisoformat(txt_date).timestamp()) <= max_date
+                    or post_not_edited and (parsed_data - max_date) > dt.timedelta(days=730).total_seconds()
+                ):
+                    possible_update_dates.append(parsed_data)
+            except ValueError:
                 pass
+        last_updated = possible_update_dates[0] if possible_update_dates else 0
+        if not last_updated:
+            last_updated = post_edited_at
         last_updated = datestamp(last_updated)
 
         score = None
