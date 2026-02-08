@@ -62,7 +62,7 @@ location of the `F95Checker.app`, type in `xattr -d com.apple.quarantine F95Chec
 
 ## Browser extension
 
-The F95Checker browser addon allows you to easily add games to you desktop F95Checker library while browsing the forum in 3 ways:
+The F95Checker browser addon allows you to easily add games to your desktop F95Checker library while browsing the forum in 3 ways:
 
 - Clicking the extension icon while viewing a thread
 - Right clicking a link to a thread
@@ -202,6 +202,7 @@ As of F95Checker 11.0, you can use the tool without logging into F95zone. Some a
 - Alerts and inbox notification checking (disabled by default as of 11.0)
 - Importing bookmarked and watched threads
 - Opening webpages if you enabled Browser > Download pages (otherwise images and spoiler content would be broken)
+
 I know you might be skeptical about inserting your account credentials into some random dude's program, and I totally agree with you if you are, but you can read through
 the code and you will see that this doesn't do anything harmful. If you still aren't sure you can create a second account just for this program.
 
