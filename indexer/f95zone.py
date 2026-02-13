@@ -93,13 +93,13 @@ ERROR_THREAD_MISSING = IndexerError(
     "THREAD_MISSING", dt.timedelta(days=14).total_seconds()
 )
 ERROR_PARSING_FAILED = IndexerError(
-    "PARSING_FAILED", dt.timedelta(hours=6).total_seconds()
+    "PARSING_FAILED", dt.timedelta(hours=1).total_seconds()
 )
 ERROR_UNKNOWN_RESPONSE = IndexerError(
-    "UNKNOWN_RESPONSE", dt.timedelta(hours=6).total_seconds()
+    "UNKNOWN_RESPONSE", dt.timedelta(hours=1).total_seconds()
 )
 ERROR_INTERNAL_ERROR = IndexerError(
-    "INTERNAL_ERROR", dt.timedelta(hours=6).total_seconds()
+    "INTERNAL_ERROR", dt.timedelta(hours=1).total_seconds()
 )
 
 
