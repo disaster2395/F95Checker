@@ -42,6 +42,7 @@ TEMP_ERROR_MESSAGES = (
     b"<!-- Connection refused -->",
     b"<!-- Too many connections -->",
     b"<p>Automated backups are currently executing. During this time, the site will be unavailable</p>",
+    b"<title>F95Zone :: Maintenance</title>",
     b"<title>F95Zone :: Scheduled Maintenance</title>",
     b'<script src="https://static.f95zone.to/assets/SamF95/ErrorPage',
     b'<div class="blockMessage"><p>Please check back in 10 mins</p></div>',
