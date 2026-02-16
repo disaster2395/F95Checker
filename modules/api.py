@@ -1006,10 +1006,10 @@ async def full_check(game: Game, last_changed: int):
                         if changed_host:
                             continue
                         if not isinstance(exc.os_error, socket.gaierror):
-                            raise  # Not a dead link
+                            raise  # Not a dead host
                         if is_f95zone_url(image_url):
                             raise  # Not a foreign host, raise normal connection error message
-                        if check_host(f95_domain) and not check_host(get_url_domain(image_url)):
+                        if (await check_host(f95_domain)) and not (await check_host(get_url_domain(image_url))):
                             # Link is actually dead
                             thread["image_url"] = "dead"
                             res = b""
