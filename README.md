@@ -188,8 +188,8 @@ dedicated API, not directly from F95zone. This data is cached for up to 7 days, 
 </details>
 
 The tool will ask this API when the last time was that a thread changed any of its data, 10 threads at a time; the API will check if any of these are due to be
-checked again, do it if so, then return the timestamps; the tool will only fetch the full data for threads that changed since the last refresh (unless you force a
-full refresh, in which case the full data for all threads is fetched).
+checked again, do it if so, then return the timestamps; the tool will only fetch the full data from the API for threads that changed since the last refresh (unless you force a
+full refresh, in which case the full data for all threads is fetched from the API; note that forcing a full refresh does not affect when the cache API will get new data from F95zone, it only affects your tool getting data from the cache API).
 
 This is what allows F95Checker to quickly check thousands of games in a matter of seconds. However running a full recheck on your end will not force the cache API to
 get new data, so when some less important details change they will be detected at most 7 days later.
