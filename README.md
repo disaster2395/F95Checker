@@ -162,6 +162,10 @@ Please note that this extension is solely to aid the usage of the desktop tool, 
 
   Have a look at this [visual guide](https://f95zone.to/threads/f95checker-willyjl.44173/post-15396547) if you still have doubts.
 
+- **How long will it take for changes on the forum to be detected by F95Checker?**
+
+  Check the "About the speed™" section below, especially the flowchart.
+
 ## About the speed™:
 
 F95zone does not yet have a proper API serving the information needed by this tool, so the only way to gather them is by requesting the full game threads like a normal
@@ -176,6 +180,12 @@ dedicated API, not directly from F95zone. This data is cached for up to 7 days, 
 - threads not tracked by F95zone Latest Updates at all are checked at least every 2 days
 - other thread types and other changes not in F95zone Latest Updates are checked at least every 7 days
 - if a requested thread does not exist, it will not be checked again for 14 days
+
+**If that sounds confusing, check this flowchart which should make it clearer:**
+<details>
+  <summary>Flowchart of maximum delay for thread changes to be detected by the cache API</summary>
+  <img width="1541" height="1169" alt="Screenshot_20260328_215855" src="https://github.com/user-attachments/assets/a7d9c244-2a6f-45c3-a628-bc46c0d2248e" />
+</details>
 
 The tool will ask this API when the last time was that a thread changed any of its data, 10 threads at a time; the API will check if any of these are due to be
 checked again, do it if so, then return the timestamps; the tool will only fetch the full data for threads that changed since the last refresh (unless you force a
