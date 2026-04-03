@@ -4,12 +4,16 @@ import dataclasses
 import datetime as dt
 import logging
 import os
+import re
 import sys
 
 import aiohttp
 import aiolimiter
 
-from common import meta
+from common import (
+    meta,
+    parser,
+)
 
 RATELIMIT = aiolimiter.AsyncLimiter(max_rate=1, time_period=0.5)
 TIMEOUT = aiohttp.ClientTimeout(total=30, connect=30, sock_read=30, sock_connect=30)
@@ -29,6 +33,8 @@ RATELIMIT_API_ERRORS = (
     "You have been temporarily blocked because of a large amount of requests, please try again later",
 )
 TEMP_ERROR_MESSAGES = (
+    b'<div id="cf-error-details" class="p-0">',
+    b"<b>504 - Gateway Timeout .</b>",
     b"<title>502 Bad Gateway</title>",
     b"<title>Error 502</title>",
     b"An unexpected error occurred. Please try again later.",
@@ -36,9 +42,14 @@ TEMP_ERROR_MESSAGES = (
     b"<!-- Connection refused -->",
     b"<!-- Too many connections -->",
     b"<p>Automated backups are currently executing. During this time, the site will be unavailable</p>",
+    b"<title>F95Zone :: Maintenance</title>",
     b"<title>F95Zone :: Scheduled Maintenance</title>",
     b'<script src="https://static.f95zone.to/assets/SamF95/ErrorPage',
     b'<div class="blockMessage"><p>Please check back in 10 mins</p></div>',
+)
+THREAD_MISSING_MESSAGES = (
+    "The requested thread could not be found.",
+    "You do not have permission to view this page or perform this action.",
 )
 
 logger = logging.getLogger(__name__)
@@ -47,10 +58,10 @@ cookies: dict = None
 
 HOST = "https://f95zone.to"
 THREAD_URL = f"{HOST}/threads/{{thread}}"
-VERCHK_URL = f"{HOST}/sam/checker.php?threads={{threads}}"
-SEARCH_URL = f"{HOST}/sam/latest_alpha/latest_data.php?cmd={{cmd}}&cat={{cat}}&page={{page}}&{{search}}={{query}}&sort={{sort}}&rows={{rows}}&_={{ts}}"
-LATEST_URL = f"{HOST}/sam/latest_alpha/latest_data.php?cmd={{cmd}}&cat={{cat}}&page={{page}}&sort={{sort}}&rows={{rows}}&_={{ts}}"
-LATEST_CATEGORIES = (
+BULK_VERSION_CHECK_URL = f"{HOST}/sam/checker.php?threads={{threads}}"
+LATEST_UPDATES_SEARCH_URL = f"{HOST}/sam/latest_alpha/latest_data.php?cmd={{cmd}}&cat={{cat}}&page={{page}}&{{search}}={{query}}&sort={{sort}}&rows={{rows}}&_={{ts}}"
+LATEST_UPDATES_URL = f"{HOST}/sam/latest_alpha/latest_data.php?cmd={{cmd}}&cat={{cat}}&page={{page}}&sort={{sort}}&rows={{rows}}&_={{ts}}"
+LATEST_UPDATES_CATEGORIES = (
     "games",
     "comics",
     "animations",
@@ -64,10 +75,11 @@ LATEST_CATEGORIES = (
 class IndexerError:
     error_flag: str
     retry_delay: int
+    details: str = ""
 
 
 ERROR_SESSION_LOGGED_OUT = IndexerError(
-    "SESSION_LOGGED_OUT", dt.timedelta(hours=2).total_seconds()
+    "SESSION_LOGGED_OUT", dt.timedelta(minutes=15).total_seconds()
 )
 ERROR_F95ZONE_RATELIMIT = IndexerError(
     "F95ZONE_RATELIMIT", dt.timedelta(minutes=15).total_seconds()
@@ -75,17 +87,20 @@ ERROR_F95ZONE_RATELIMIT = IndexerError(
 ERROR_F95ZONE_UNAVAILABLE = IndexerError(
     "F95ZONE_UNAVAILABLE", dt.timedelta(minutes=15).total_seconds()
 )
+ERROR_F95ZONE_ERROR = IndexerError(
+    "F95ZONE_ERROR", dt.timedelta(minutes=15).total_seconds()
+)
 ERROR_THREAD_MISSING = IndexerError(
     "THREAD_MISSING", dt.timedelta(days=14).total_seconds()
 )
 ERROR_PARSING_FAILED = IndexerError(
-    "PARSING_FAILED", dt.timedelta(hours=6).total_seconds()
+    "PARSING_FAILED", dt.timedelta(hours=1).total_seconds()
 )
 ERROR_UNKNOWN_RESPONSE = IndexerError(
-    "UNKNOWN_RESPONSE", dt.timedelta(hours=6).total_seconds()
+    "UNKNOWN_RESPONSE", dt.timedelta(hours=1).total_seconds()
 )
 ERROR_INTERNAL_ERROR = IndexerError(
-    "INTERNAL_ERROR", dt.timedelta(hours=6).total_seconds()
+    "INTERNAL_ERROR", dt.timedelta(hours=1).total_seconds()
 )
 
 
@@ -110,7 +125,6 @@ async def lifespan():
     try:
         yield
     finally:
-
         await session.close()
         session = None
 
@@ -119,10 +133,24 @@ def check_error(
     res: bytes | dict | Exception, logger: logging.Logger
 ) -> IndexerError | None:
     if isinstance(res, bytes):
-        if any((msg in res) for msg in LOGIN_ERROR_MESSAGES):
-            logger.error("Logged out of F95zone")
-            # TODO: maybe auto login, but xf_user cookie should be enough for a long time
-            return ERROR_SESSION_LOGGED_OUT
+        if b'<body data-template="error">' in res:
+            try:
+                html = parser.html(res)
+                message = (
+                    html.select_one(".p-body-pageContent .blockMessage")
+                    .get_text()
+                    .strip()
+                )
+                if message in THREAD_MISSING_MESSAGES:
+                    return ERROR_THREAD_MISSING
+                else:
+                    logger.error(f"F95zone Forum returned an error: {message}")
+                    return dataclasses.replace(ERROR_F95ZONE_ERROR, details=message)
+            except Exception:
+                logger.error(
+                    f"F95zone Forum returned an error that could not be parsed: {res}"
+                )
+                return ERROR_UNKNOWN_RESPONSE
 
         if any((msg in res) for msg in RATELIMIT_FORUM_ERRORS):
             logger.error("Hit F95zone Forum ratelimit")
@@ -132,17 +160,88 @@ def check_error(
             logger.warning("F95zone temporarily unreachable")
             return ERROR_F95ZONE_UNAVAILABLE
 
+        if any((msg in res) for msg in LOGIN_ERROR_MESSAGES):
+            logger.error("Logged out of F95zone")
+            # TODO: maybe auto login, but xf_user cookie should be enough for a long time
+            return ERROR_SESSION_LOGGED_OUT
+
     elif isinstance(res, dict):
         if res.get("status") == "error":
+            message = res.get("msg")
 
-            if any((msg == res.get("msg")) for msg in RATELIMIT_API_ERRORS):
+            if any((msg == message) for msg in RATELIMIT_API_ERRORS):
                 logger.error("Hit F95zone API ratelimit")
                 return ERROR_F95ZONE_RATELIMIT
 
-            logger.error(f"F95zone API returned an error: {res}")
-            return ERROR_UNKNOWN_RESPONSE
+            if isinstance(message, str):
+                logger.error(f"F95zone API returned an error: {message}")
+                return dataclasses.replace(ERROR_F95ZONE_ERROR, details=message)
+            else:
+                logger.error(
+                    f"F95zone API returned an error that could not be parsed: {res}"
+                )
+                return ERROR_UNKNOWN_RESPONSE
 
     elif isinstance(res, Exception):
         if isinstance(res, (asyncio.TimeoutError, aiohttp.ClientConnectionError)):
             logger.warning("F95zone temporarily unreachable")
             return ERROR_F95ZONE_UNAVAILABLE
+
+
+def latest_updates_search_sanitize_query(query: str):
+    redis_stopwords = (
+        "a",
+        "is",
+        "the",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "but",
+        "by",
+        "for",
+        "if",
+        "in",
+        "into",
+        "it",
+        "no",
+        "not",
+        "of",
+        "on",
+        "or",
+        "such",
+        "that",
+        "their",
+        "then",
+        "there",
+        "these",
+        "they",
+        "this",
+        "to",
+        "was",
+        "will",
+        "with",
+    )
+    query = re.sub(r"’s |'s ", " ", query)
+    query = query.encode("ascii", errors="replace").decode()
+    query = re.sub(r"\.+ | \.+", " ", query)
+    for char in "?&/':;-.+!~(),*":
+        query = query.replace(char, " ")
+    query = re.sub(r"\s+", " ", query).strip()
+    words = query.split(" ")
+    for stopword in redis_stopwords:
+        for word in words.copy():
+            if word.lower() == stopword:
+                words.remove(word)
+    query = ""
+    while words:
+        append = f"{' ' if query else ''}{words.pop(0)}"
+        if len(query + append) > 30:
+            append = append[: 30 - len(query)]
+            if len(append) > 3 and append.strip().lower() not in redis_stopwords:
+                query += append
+            break
+        query += append
+    return query
