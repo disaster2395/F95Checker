@@ -764,6 +764,7 @@ class Tab:
     icon: str
     color: tuple[float] | None
     position: int
+    do_not_update: int
     instances: typing.ClassVar = []
 
     @classmethod

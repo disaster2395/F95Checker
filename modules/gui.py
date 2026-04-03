@@ -3070,6 +3070,10 @@ class MainGUI():
                                 )
                             else:
                                 close_callback()
+                        dnu_changed, dnu_value = imgui.checkbox("Exclude from FU", tab.do_not_update)
+                        if dnu_changed:
+                            tab.do_not_update = dnu_value
+                            async_thread.run(db.update_tab(tab, "do_not_update"))
                         imgui.align_text_to_frame_padding()
                         if not utils.is_refreshing():
                             imgui.text(f" {icons.reload_alert}")
@@ -4073,6 +4077,8 @@ class MainGUI():
                     if not globals.settings.refresh_completed_games and not globals.settings.refresh_archived_games:
                         if imgui.selectable(f"{icons.reload_alert} Full Refresh (incl. everything)", False)[0]:
                             utils.start_refresh_task(api.refresh(full=True, force_archived=True, force_completed=True))
+                    if imgui.selectable(f"{icons.reload_alert} Full Refresh (EVERYTHING)", False)[0]:
+                        utils.start_refresh_task(api.refresh(full=True, force_archived=True, force_completed=True, force_all=True))
                 imgui.separator()
                 if imgui.selectable(f"{icons.information_outline} More info", False)[0]:
                     utils.push_popup(

@@ -1267,7 +1267,7 @@ async def check_updates():
         )
 
 
-async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=False, force_completed=False):
+async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=False, force_completed=False, force_all=False):
     if globals.debug:
         globals.logger.warning("Run refresh via WillyJL cached API")
 
@@ -1276,6 +1276,8 @@ async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=
         if game.custom:
             continue
         if not game.image.missing:
+            if not games and (not game.tab or game.tab.do_not_update) and not force_all:
+                continue
             if not games and game.archived and not globals.settings.refresh_archived_games and not force_archived:
                 continue
             if not games and game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:

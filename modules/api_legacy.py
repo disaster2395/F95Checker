@@ -404,7 +404,7 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             await asyncio.shield(update_game())
         globals.refresh_progress += 1
 
-async def refresh(*games: list[Game], full=False, notifs=True, force_completed=False, force_archived=False):
+async def refresh(*games: Game, full=False, notifs=True, force_completed=False, force_archived=False, force_all=False):
     if globals.debug:
         globals.logger.warning("Run refresh via f95zone.to")
 
@@ -415,6 +415,8 @@ async def refresh(*games: list[Game], full=False, notifs=True, force_completed=F
     full_queue: list[tuple[Game, str]] = []
     for game in (games or globals.games.values()):
         if game.custom:
+            continue
+        if not games and (not game.tab or game.tab.do_not_update) and not force_all:
             continue
         if not games and game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
             continue

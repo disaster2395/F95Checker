@@ -345,6 +345,7 @@ async def connect():
             "icon":                        f'TEXT    DEFAULT "{Tab.base_icon()}"',
             "color":                       f'TEXT    DEFAULT NULL',
             "position":                    f'INTEGER DEFAULT 0',
+            "do_not_update":               f'INTEGER DEFAULT 0'
         }
     )
     await create_table(
