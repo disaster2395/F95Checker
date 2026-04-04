@@ -3070,7 +3070,7 @@ class MainGUI():
                                 )
                             else:
                                 close_callback()
-                        dnu_changed, dnu_value = imgui.checkbox("Exclude from FU", tab.do_not_update)
+                        dnu_changed, dnu_value = imgui.checkbox("Exclude from FR", tab.do_not_update)
                         if dnu_changed:
                             tab.do_not_update = dnu_value
                             async_thread.run(db.update_tab(tab, "do_not_update"))
@@ -5153,6 +5153,15 @@ class MainGUI():
                 async_thread.run(db.update_settings("max_retries"))
 
             draw_settings_label(
+                "Chunk size:",
+                "Chunk size for fast refresh"
+            )
+            changed, value = imgui.drag_int("###fast_check_max_ids", set.fast_check_max_ids, change_speed=5, min_value=10, max_value=100)
+            set.fast_check_max_ids = min(max(value, 10), 100)
+            if changed:
+                async_thread.run(db.update_settings("fast_check_max_ids"))
+
+            draw_settings_label(
                 "No semaphore timeout:",
                 "If you are having connection issues specifically with 'WinError 121' and 'The semaphore timeout period has expired' "
                 "then try to enable this option, it will suppress these errors and retry all connections as if they never happened. "
@@ -5294,6 +5303,9 @@ class MainGUI():
                 "Can be useful if you only store new games in default tab."
             )
             draw_settings_checkbox("default_tab_is_new")
+
+            draw_settings_label("DNR Default", "Exclude Default tab from full update by default, requires manual update or \"Full Refresh (EVERYTHING)\"")
+            draw_settings_checkbox("default_excluded_from_fu")
 
             draw_settings_label(
                 "Independent views:",

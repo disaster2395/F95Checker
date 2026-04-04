@@ -904,12 +904,14 @@ class Settings:
     datestamp_format            : str
     default_exe_dir             : dict[Os, str]
     default_tab_is_new          : bool
+    default_excluded_from_fu    : bool
     display_mode                : DisplayMode
     display_tab                 : Tab.get
     downloads_dir               : dict[Os, str]
     ext_background_add          : bool
     ext_highlight_tags          : bool
     ext_icon_glow               : bool
+    fast_check_max_ids          : int
     filter_all_tabs             : bool
     fit_images                  : bool
     grid_columns                : int

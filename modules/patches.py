@@ -49,7 +49,7 @@ def apply():
             65548: "ignore",  # Wayland: The platform does not support window position/icon
             None: "raise",
         }
-        logging.basicConfig()
+        logging.basicConfig(level=logging.INFO)
 
     # Register archive formats
     import py7zr

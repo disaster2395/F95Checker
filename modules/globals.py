@@ -35,8 +35,9 @@ def _():
     if debug:
         global logger
         import logging
-        logging.basicConfig()
+        logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger("f95checker")
+        logger.setLevel(logging.DEBUG)
 _()
 
 # Done here to avoid circular import

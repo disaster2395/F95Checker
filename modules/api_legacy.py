@@ -8,6 +8,7 @@ import re
 import socket
 import time
 from typing import Coroutine
+from indexer.f95zone import THREAD_MISSING_MESSAGES
 
 import aiohttp
 
@@ -128,22 +129,25 @@ async def fetch(method: str, url: str, **kwargs):
 
 async def fast_check(games: list[Game], full_queue: list[tuple[Game, str]]=None, full=False):
     games = list(filter(lambda game: not game.custom, games))
+    game_names = ", ".join(sorted([game.name for game in games]))
 
     async with api.f95_ratelimit, (api.fast_checks_sem or asyncio.Semaphore(1)):
         try:
             res = await fetch("GET", api.f95_fast_check_endpoint.format(threads=",".join(str(game.id) for game in games)), cookies=False)
-            api.raise_f95zone_error(res)
+            api.raise_f95zone_error(res, additional_message=f"Games:\n{game_names}")
             res = json.loads(res)
-            if res["msg"] in ("Missing threads data", "Thread not found"):
+            if res["msg"] in ("Missing threads data", "Thread not found", *THREAD_MISSING_MESSAGES):
                 res["status"] = "ok"
                 res["msg"] = {}
-            api.raise_f95zone_error(res)
+            api.raise_f95zone_error(res, additional_message=f"Games:\n{game_names}")
             versions = res["msg"]
         except Exception as exc:
             if isinstance(exc, msgbox.Exc) or not res:
                 raise exc
             raise msgbox.Exc(
                 "Fast check error",
+                "Games in chunk:\n"
+                f"{game_names}\n\n"
                 "Something went wrong checking some of your games:\n"
                 f"{error.text()}\n"
                 "\n"
@@ -209,7 +213,10 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
                     await asyncio.sleep(globals.settings.pause_on_429)
                     return full_check(game, version)
 
-            api.raise_f95zone_error(res)
+            if globals.debug and globals.logger:
+                globals.logger.debug(f"Full-checking \"{game.name}\"...")
+
+            api.raise_f95zone_error(res, additional_message=f"Current game: {game.name}")
             if req.status in (403, 404):
                 if not game.archived:
                     buttons = {
@@ -404,41 +411,25 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
             await asyncio.shield(update_game())
         globals.refresh_progress += 1
 
-async def refresh(*games: Game, full=False, notifs=True, force_completed=False, force_archived=False, force_all=False):
-    if globals.debug:
-        globals.logger.warning("Run refresh via f95zone.to")
-
+async def refresh(fast_queue: list[list[Game]], full=False):
     if not await api.assert_login():
         return
 
-    fast_queue: list[list[Game]] = [[]]
     full_queue: list[tuple[Game, str]] = []
-    for game in (games or globals.games.values()):
-        if game.custom:
-            continue
-        if not games and (not game.tab or game.tab.do_not_update) and not force_all:
-            continue
-        if not games and game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
-            continue
-        if not games and game.archived and not globals.settings.refresh_archived_games and not force_archived:
-            continue
-        if len(fast_queue[-1]) == 100:
-            fast_queue.append([])
-        fast_queue[-1].append(game)
-
-    notifs = notifs and globals.settings.check_notifs
-    globals.refresh_progress += 1
-    globals.refresh_total += sum(len(chunk) for chunk in fast_queue) + bool(notifs)
 
     api.fast_checks_sem = asyncio.Semaphore(globals.settings.max_connections)
     api.full_checks_sem = asyncio.Semaphore(int(max(1, math.floor(globals.settings.max_connections / 10))))
     tasks: list[asyncio.Task] = []
     try:
-        tasks = [asyncio.create_task(fast_check(chunk, full_queue, full=full)) for chunk in fast_queue]
-        await asyncio.gather(*tasks)
+        if not full:
+            tasks = [asyncio.create_task(fast_check(chunk, full_queue, full=full)) for chunk in fast_queue]
+            await asyncio.gather(*tasks)
 
-        tasks = [asyncio.create_task(full_check(game, version)) for game, version in full_queue]
-        await asyncio.gather(*tasks)
+            tasks = [asyncio.create_task(full_check(game, version)) for game, version in full_queue]
+            await asyncio.gather(*tasks)
+        else:
+            tasks = [asyncio.create_task(full_check(game, game.version)) for chunk in fast_queue for game in chunk]
+            await asyncio.gather(*tasks)
     except Exception:
         for task in tasks:
             task.cancel()
@@ -447,10 +438,3 @@ async def refresh(*games: Game, full=False, notifs=True, force_completed=False, 
         raise
     api.fast_checks_sem = None
     api.full_checks_sem = None
-
-    if notifs:
-        await api.check_notifs(standalone=False)
-
-    if not games:
-        globals.settings.last_successful_refresh.update(time.time())
-        await db.update_settings("last_successful_refresh")

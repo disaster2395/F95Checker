@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from typing import Callable, Coroutine, Any
 
 import aiofiles
 import aiohttp
@@ -321,7 +322,7 @@ async def fetch(method: str, url: str, **kwargs):
         return res
 
 
-def raise_f95zone_error(res: bytes | dict, return_login=False):
+def raise_f95zone_error(res: bytes | dict, return_login=False, additional_message: str = ""):
     if isinstance(res, bytes):
         if b'<body data-template="error">' in res:
             try:
@@ -337,13 +338,15 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 raise msgbox.Exc(
                     "Forum error",
                     "The F95zone Forum returned a temporary error with the following message:\n"
-                    f"{message}",
+                    f"{message}"
+                    f"{"\n\n" + additional_message if additional_message else ""}",
                     MsgBox.error
                 )
             else:
                 raise msgbox.Exc(
                     "Forum error",
-                    "The F95zone Forum returned a temporary error that could not be parsed.",
+                    "The F95zone Forum returned a temporary error that could not be parsed."
+                    f"{"\n\n" + additional_message if additional_message else ""}",
                     MsgBox.error,
                     more=str(res)
                 )
@@ -351,14 +354,16 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
             raise msgbox.Exc(
                 "Rate limit",
                 "F95zone servers are ratelimiting you,\n"
-                "please try again later.",
+                "please try again later."
+                f"{"\n\n" + additional_message if additional_message else ""}",
                 MsgBox.warn
             )
         if any(msg in res for msg in f95_temp_error_messages):
             raise msgbox.Exc(
                 "Server downtime",
                 "F95zone servers are currently unreachable,\n"
-                "please retry in a few minutes.",
+                "please retry in a few minutes."
+                f"{"\n\n" + additional_message if additional_message else ""}",
                 MsgBox.warn
             )
         if any(msg in res for msg in f95_login_error_messages):
@@ -378,7 +383,8 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 raise msgbox.Exc(
                     "API error",
                     "The F95zone API returned an 'error' status with the following message:\n"
-                    f"{msg}",
+                    f"{msg}"
+                    f"{"\n\n" + additional_message if additional_message else ""}",
                     MsgBox.error,
                     more=more
                 )
@@ -1358,30 +1364,7 @@ async def check_updates():
         )
 
 
-async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=False, force_completed=False, force_all=False):
-    if globals.debug:
-        globals.logger.warning("Run refresh via WillyJL cached API")
-
-    fast_queue: list[list[Game]] = [[]]
-    for game in (games or globals.games.values()):
-        if game.custom:
-            continue
-        if not games:
-            if (not game.tab or game.tab.do_not_update) and not force_all:
-                continue
-            if game.archived and not globals.settings.refresh_archived_games and not force_archived:
-                continue
-            if not game.image.missing:
-                if game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
-                    continue
-        if len(fast_queue[-1]) == api_fast_check_max_ids:
-            fast_queue.append([])
-        fast_queue[-1].append(game)
-
-    notifs = notifs and globals.settings.check_notifs
-    globals.refresh_progress += 1
-    globals.refresh_total += sum(len(chunk) for chunk in fast_queue) + bool(notifs)
-
+async def __refresh(fast_queue: list[list[Game]], full=False):
     global fast_checks_sem, full_checks_sem, fast_checks_counter
     fast_checks_sem = asyncio.Semaphore(1)
     full_checks_sem = asyncio.Semaphore(globals.settings.max_connections)
@@ -1400,13 +1383,6 @@ async def __refresh(*games: list[Game], full=False, notifs=True, force_archived=
     fast_checks_sem = None
     full_checks_sem = None
     fast_checks_counter = 0
-
-    if notifs:
-        await check_notifs(standalone=False)
-
-    if not games:
-        globals.settings.last_successful_refresh.update(time.time())
-        await db.update_settings("last_successful_refresh")
 
 
 async def download_file(download: FileDownload):
@@ -1673,14 +1649,49 @@ def open_ddl_popup(game: Game):
     async_thread.run(_ddl_load_files())
 
 
-refresh = ...
+refresh_internal: Callable[[list[list[Game]], bool], Coroutine[Any, Any, None]] = lambda fast_queue, full: asyncio.sleep(10)
 def make_api_wrapper():
-    global refresh
+    global refresh_internal
     if globals.settings.api_type == APIType.F95:
-        from modules.api_legacy import refresh as _refresh_
-        refresh = _refresh_
+        from modules.api_legacy import refresh as __refresh_legacy
+        refresh_internal = __refresh_legacy
     else:
-        refresh = __refresh
+        refresh_internal = __refresh
+
+
+async def refresh(*games: Game, full=False, notifs=True, force_archived=False, force_completed=False, force_all=False):
+    is_legacy = globals.settings.api_type == APIType.F95
+    if globals.debug:
+        globals.logger.info(f"Run refresh via {"f95zone.to" if is_legacy else "WillyJL cached API"}")
+
+    fast_queue: list[list[Game]] = [[]]
+    for game in (games or sorted(globals.games.values(), key=lambda g: g.tab.position if g.tab else -1)):
+        if game.custom:
+            continue
+        if not games:
+            if (not game.tab and globals.settings.default_excluded_from_fu or game.tab and game.tab.do_not_update) and not force_all:
+                continue
+            if game.archived and not globals.settings.refresh_archived_games and not force_archived:
+                continue
+            if not game.image.missing:
+                if game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
+                    continue
+        if len(fast_queue[-1]) == globals.settings.fast_check_max_ids:
+            fast_queue.append([])
+        fast_queue[-1].append(game)
+
+    notifs = notifs and globals.settings.check_notifs
+    globals.refresh_progress += 1
+    globals.refresh_total += sum(len(chunk) for chunk in fast_queue) + bool(notifs)
+
+    await refresh_internal(fast_queue, full)
+
+    if notifs:
+        await check_notifs(standalone=False)
+
+    if not games:
+        globals.settings.last_successful_refresh.update(time.time())
+        await db.update_settings("last_successful_refresh")
 
 
 ddos_guard_bypass_fake_mark = {
