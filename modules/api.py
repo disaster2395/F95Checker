@@ -335,7 +335,7 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 "please try again later.",
                 MsgBox.warn
             )
-        if any(msg in res for msg in f95_temp_error_messages):
+        if any(msg in res for msg in f95_temp_error_messages) or not res:
             raise msgbox.Exc(
                 "Server downtime",
                 "F95zone servers are currently unreachable,\n"
