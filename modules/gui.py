@@ -1466,6 +1466,19 @@ class MainGUI():
             imgui.same_line()
             imgui.text(label + " ")
 
+    def draw_game_updated_checkbox(self, label=""):
+        if imgui.small_button(icons.check):
+            for game in globals.games.values():
+                if game.selected:
+                    game.updated = True
+        imgui.same_line()
+        if imgui.small_button(icons.close):
+            for game in globals.games.values():
+                if game.selected:
+                    game.updated = False
+        imgui.same_line()
+        imgui.text(label + " ")
+
     def draw_game_rating_widget(self, game: Game):
         if not game:
             imgui.text("Set:")
@@ -1757,6 +1770,8 @@ class MainGUI():
         imgui.separator()
         self.draw_game_finished_checkbox(game, f"{icons.flag_checkered} Finished")
         self.draw_game_installed_checkbox(game, f"{icons.download} Installed")
+        if not game:
+            self.draw_game_updated_checkbox(f"{icons.star_circle} Updated")
         imgui.separator()
         self.draw_game_rating_widget(game)
         if imgui.begin_menu(f"{icons.label_multiple_outline} Labels"):

@@ -189,13 +189,13 @@ async def fast_check(games: list[Game], full_queue: list[tuple[Game, str]]=None,
 
             full_queue.append((game, version))
 
-async def full_check(game: Game, version: str):
+async def full_check(game: Game, version: str | None):
     result = await full_check_internal(game, version)
     if result is not None:
         await result
 
 
-async def full_check_internal(game: Game, version: str) -> Coroutine | None: # NOSONAR
+async def full_check_internal(game: Game, version: str | None) -> Coroutine | None: # NOSONAR
     async with api.full_checks_counter, (api.full_checks_sem or asyncio.Semaphore(1)):
         if api.s429_sem.locked():
             await api.s429_sem.acquire()
@@ -267,6 +267,8 @@ async def full_check_internal(game: Game, version: str) -> Coroutine | None: # N
         if not version:
             if ret.thread_version:
                 version = ret.thread_version
+            elif old_version:
+                version = old_version
             else:
                 version = "N/A"
 
@@ -428,7 +430,7 @@ async def refresh(fast_queue: list[list[Game]], full=False):
             tasks = [asyncio.create_task(full_check(game, version)) for game, version in full_queue]
             await asyncio.gather(*tasks)
         else:
-            tasks = [asyncio.create_task(full_check(game, game.version)) for chunk in fast_queue for game in chunk]
+            tasks = [asyncio.create_task(full_check(game, None)) for chunk in fast_queue for game in chunk]
             await asyncio.gather(*tasks)
     except Exception:
         for task in tasks:

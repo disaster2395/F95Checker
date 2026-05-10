@@ -1664,11 +1664,14 @@ async def refresh(*games: Game, full=False, notifs=True, force_archived=False, f
     if globals.debug:
         globals.logger.info(f"Run refresh via {"f95zone.to" if is_legacy else "WillyJL cached API"}")
 
+    fast_queue_size = globals.settings.fast_check_max_ids \
+        if not full \
+        else min(100, max(globals.settings.fast_check_max_ids * 3, 50))
     fast_queue: list[list[Game]] = [[]]
     for game in (games or sorted(globals.games.values(), key=lambda g: g.tab.position if g.tab else -1)):
         if game.custom:
             continue
-        if not games:
+        if not games and game.last_full_check:
             if (not game.tab and globals.settings.default_excluded_from_fu or game.tab and game.tab.do_not_update) and not force_all:
                 continue
             if game.archived and not globals.settings.refresh_archived_games and not force_archived:
@@ -1676,7 +1679,7 @@ async def refresh(*games: Game, full=False, notifs=True, force_archived=False, f
             if not game.image.missing:
                 if game.status is Status.Completed and not globals.settings.refresh_completed_games and not force_completed:
                     continue
-        if len(fast_queue[-1]) == globals.settings.fast_check_max_ids:
+        if len(fast_queue[-1]) == fast_queue_size:
             fast_queue.append([])
         fast_queue[-1].append(game)
 

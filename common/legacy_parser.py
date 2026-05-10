@@ -21,6 +21,7 @@ _html = html
 ParsedThread = collections.namedtuple("ParsedThread", [
     "name",
     "thread_version",
+    "thread_version_2",
     "developer",
     "type",
     "status",
@@ -202,12 +203,12 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
                 name += elem.text
         name = fixed_spaces(sanitize_whitespace(re.search(r"^\s*(.*?)(?:\s*\[.*?\]\s*)*$", name).group(1)))
 
-        thread_version = get_game_attr("version", "game version", "mod version")
+        thread_version = None
+        thread_version_2 = get_game_attr("version", "game version", "mod version")
+        if match := re.search(r"(?:\[.+?\] - )*.+?\[(.+?)\]", html.title.text):
+            thread_version = fixed_spaces(sanitize_whitespace(match.group(1)))
         if not thread_version:
-            if match := re.search(r"(?:\[.+?\] - )*.+?\[(.+?)\]", html.title.text):
-                thread_version = fixed_spaces(sanitize_whitespace(match.group(1)))
-        if not thread_version:
-            thread_version = None
+            thread_version = thread_version_2 or None
 
         developer = get_game_attr(
             "developer/publisher",
@@ -431,6 +432,7 @@ def thread(game_id: int, res: bytes, save_broken: bool, pipe: multiprocessing.Qu
     ret = ParsedThread(
         name=name,
         thread_version=thread_version,
+        thread_version_2=thread_version_2,
         developer=developer,
         type=type,
         status=status,
