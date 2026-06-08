@@ -31,7 +31,7 @@ jobs:
           git config --global core.eol lf
 
       - name: "Setup Python"
-        uses: "actions/setup-python@v5"
+        uses: "actions/setup-python@v6"
         with:
           python-version: "${{ matrix.config.python }}"
 
@@ -48,7 +48,7 @@ jobs:
       # === BUILD ===
 
       - name: "Clone repo"
-        uses: "actions/checkout@v4"
+        uses: "actions/checkout@v6"
         with:
           path: "."
 
@@ -96,7 +96,7 @@ jobs:
 
       # - name: "Import codesign certificate (macOS)"
       #   if: "runner.os == 'macOS'"
-      #   uses: "apple-actions/import-codesign-certs@v1"
+      #   uses: "apple-actions/import-codesign-certs@v7"
       #   with:
       #     p12-file-base64: "${{ secrets.CODESIGN_P12_BASE64 }}"
       #     p12-password: "${{ secrets.CODESIGN_P12_PASSWORD }}"
@@ -155,7 +155,7 @@ jobs:
 
       - name: "Upload commit artifact"
         if: "github.event_name != 'release'"
-        uses: "actions/upload-artifact@v4"
+        uses: "actions/upload-artifact@v7"
         with:
           name: "${{ github.event.repository.name }}-${{ matrix.config.artifact }}-Artifact"
           path: "./${{ github.event.repository.name }}-${{ matrix.config.artifact }}.zip"
@@ -163,7 +163,7 @@ jobs:
 
       - name: "Upload release artifact"
         if: "github.event_name == 'release'"
-        uses: "softprops/action-gh-release@v1"
+        uses: "softprops/action-gh-release@v3"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
@@ -185,7 +185,7 @@ jobs:
       # === PACKAGE ===
 
       - name: "Clone repo"
-        uses: "actions/checkout@v4"
+        uses: "actions/checkout@v6"
         with:
           path: "."
 
@@ -226,7 +226,7 @@ jobs:
 
       - name: "Upload commit artifact"
         if: "github.event_name != 'release'"
-        uses: "actions/upload-artifact@v4"
+        uses: "actions/upload-artifact@v7"
         with:
           name: "${{ github.event.repository.name }}-Source-Artifact"
           path: "./${{ github.event.repository.name }}-Source.zip"
@@ -234,7 +234,7 @@ jobs:
 
       - name: "Upload release artifact"
         if: "github.event_name == 'release'"
-        uses: "softprops/action-gh-release@v1"
+        uses: "softprops/action-gh-release@v3"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
@@ -264,10 +264,3 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
           python ./.github/workflow_data/release.py
-
-      - name: "Delete skipped workflow runs"
-        if: "github.event_name == 'release'"
-        uses: "WillyJL/delete-skipped-workflow-runs@main"
-        with:
-          retain_days: 0
-          keep_minimum_runs: 0
