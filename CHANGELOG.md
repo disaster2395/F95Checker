@@ -35,9 +35,16 @@
 - Fix marking as executable on Linux/MacOS with RenPy games including a dot in their name (by @WillyJL)
 - Fix readability on some framed text with dark text (by @WillyJL)
 - RPDL token is regenerated once it expires (by @WillyJL)
+- Make Godot a recognizable engine type (#266 by @FaceCrap)
+- Fix macOS .app bundle support for game launch (#259 by @cantunborn)
+- Popup warning when Max Labels is reached (#231 by @FaceCrap)
+- Fix crash when RPC proxy fails (by @WillyJL)
+- Only import QtWebEngine when we use it, users can choose to delete QtWebEngine .dll/.so/.dylib if they don't want the integrated browser for login/downloads/browsing (by @WillyJL)
+- Add unknown type/tag/status so API updates don't create errors (by @WillyJL)
 
 ### Removed:
 - Excluded `libEGL.so` on linux binary bundles, fixes "Cannot find EGLConfig, returning null config" (by @WillyJL)
 
 ### Known Issues:
 - MacOS webview in frozen binaries remains blank, run from source instead
+- The new notification-daemon process on Linux can sometimes get stuck spinning and cause the app to crash
