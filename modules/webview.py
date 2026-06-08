@@ -246,8 +246,11 @@ def create(
                     body = body.encode()
                 from common import meta
                 async def _handle():
-                    async with self.session.request(method, meta.rpc_url + path, data=body) as req:
-                        return {"status": req.status, "body": base64.b64encode(await req.read()).decode()}
+                    try:
+                        async with self.session.request(method, meta.rpc_url + path, data=body) as req:
+                            return {"status": req.status, "body": base64.b64encode(await req.read()).decode()}
+                    except aiohttp.ClientError:
+                        return {}
                 return async_thread.wait(_handle())
         app.window.webview.rpcproxy = RPCProxy()
         app.window.webview.channel = QtWebChannel.QWebChannel(app.window.webview)
