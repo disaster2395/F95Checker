@@ -15,6 +15,7 @@
   - Saves a lot of VRAM if completely disabled, no GIFs play and only first frame is loaded
   - Saves CPU/GPU usage by redrawing less if disabled when unfocused, but still uses same VRAM
 - Tabs can now be reordered by dragging (by @WillyJL)
+- macOS arm64 (Apple Silicon) binary builds (#258 by @rakleed)
 
 ### Updated:
 - New notification system with buttons and better platform support, option to include banner image in update notifs (#220 by @WillyJL)

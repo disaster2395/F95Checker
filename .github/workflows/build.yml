@@ -14,9 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { os: "windows-2022",   python: "3.12.4", cx-freeze: "7.0.0", cx-logging: "v3.2.0", astcenc: "5.1.0", compressonator: "4.5.52" }
-          - { os: "ubuntu-22.04",   python: "3.12.4", cx-freeze: "7.0.0", cx-logging: ""      , astcenc: "5.1.0", compressonator: "4.5.52" }
-          - { os: "macos-15-intel", python: "3.12.4", cx-freeze: "7.0.0", cx-logging: ""      , astcenc: "5.1.0", compressonator: ""       }
+          - { os: "windows-2022",   python: "3.12.4", cx-freeze: "7.0.0", cx-logging: "v3.2.0", astcenc: "5.1.0", compressonator: "4.5.52", artifact: "Windows" }
+          - { os: "ubuntu-22.04",   python: "3.12.4", cx-freeze: "7.0.0", cx-logging: "",       astcenc: "5.1.0", compressonator: "4.5.52", artifact: "Linux" }
+          - { os: "macos-15-intel", python: "3.12.4", cx-freeze: "7.0.0", cx-logging: "",       astcenc: "5.1.0", compressonator: "",       artifact: "macOS-x64" }
+          - { os: "macos-15",       python: "3.12.4", cx-freeze: "7.0.0", cx-logging: "",       astcenc: "5.1.0", compressonator: "",       artifact: "macOS-arm64" }
     name: "${{ matrix.config.os }}"
     runs-on: "${{ matrix.config.os }}"
     if: "github.event_name != 'push' || contains(github.event.head_commit.message, '+ BUILD')"
@@ -150,14 +151,14 @@ jobs:
       - name: "Zip artifact"
         run: |
           cd ./dist/
-          7z a ../${{ github.event.repository.name }}-${{ runner.os }}.zip .
+          7z a ../${{ github.event.repository.name }}-${{ matrix.config.artifact }}.zip .
 
       - name: "Upload commit artifact"
         if: "github.event_name != 'release'"
         uses: "actions/upload-artifact@v4"
         with:
-          name: "${{ github.event.repository.name }}-${{ runner.os }}-Artifact"
-          path: "./${{ github.event.repository.name }}-${{ runner.os }}.zip"
+          name: "${{ github.event.repository.name }}-${{ matrix.config.artifact }}-Artifact"
+          path: "./${{ github.event.repository.name }}-${{ matrix.config.artifact }}.zip"
           compression-level: 0
 
       - name: "Upload release artifact"
@@ -166,7 +167,7 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
-          files: "./${{ github.event.repository.name }}-${{ runner.os }}.zip"
+          files: "./${{ github.event.repository.name }}-${{ matrix.config.artifact }}.zip"
 
   source:
     name: "source"
