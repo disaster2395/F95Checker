@@ -388,6 +388,7 @@ Status = IntEnumHack("Status", [
     ("Abandoned", (4, {"color" : (0.87, 0.20, 0.20), "icon": "close_circle"})),
     ("Unchecked", (5, {"color" : (0.50, 0.50, 0.50), "icon": "alert_circle"})),
     ("Custom",    (6, {"color" : (0.95, 0.50, 0.00), "icon": "dots_horizontal_circle"})),
+    ("Unknown",   (7, {"color" : (0.50, 0.50, 0.50), "icon": "alert_circle"})),
 ])
 
 
@@ -545,6 +546,7 @@ Tag = IntEnumHack("Tag", [
     ("voiced",                 (137, {"text": "voiced"})),
     ("vore",                   (138, {"text": "vore"})),
     ("voyeurism",              (139, {"text": "voyeurism"})),
+    ("unknown",                (154, {"text": "unknown"})),
 ])
 
 
@@ -929,6 +931,7 @@ Type = IntEnumHack("Type", [
     ("Tutorial",   (18, {"color": colors.hex_to_rgba_0_1("#EC5555"), "category": Category.Misc})),
     ("Misc",       (1,  {"color": colors.hex_to_rgba_0_1("#B8B00C"), "category": Category.Misc})),
     ("Unchecked",  (23, {"color": colors.hex_to_rgba_0_1("#393939"), "category": Category.Misc})),
+    ("Unknown",    (32, {"color": colors.hex_to_rgba_0_1("#393939"), "category": Category.Misc})),
 ])
 
 
