@@ -1037,16 +1037,22 @@ class Game:
                     if base in exe.parents:
                         self.executables[i] = exe.relative_to(base).as_posix()
                         changed = True
-                    executables_valids.append(exe.is_file())
+                    executables_valids.append(exe.is_file() or (globals.os is Os.MacOS and exe.suffix == ".app" and exe.is_dir()))
                 else:
-                    executables_valids.append((base / exe).is_file())
+                    abs_exe = base / exe
+                    executables_valids.append(abs_exe.is_file() or (globals.os is Os.MacOS and abs_exe.suffix == ".app" and abs_exe.is_dir()))
             self.executables_valids = executables_valids
             if changed:
                 from external import async_thread
                 from modules import db
                 async_thread.run(db.update_game(self, "executables"))
         else:
-            self.executables_valids = [utils.is_uri(executable) or os.path.isfile(executable) for executable in self.executables]
+            def _exe_valid(executable):
+                if utils.is_uri(executable):
+                    return True
+                exe = pathlib.Path(executable)
+                return exe.is_file() or (globals.os is Os.MacOS and exe.suffix == ".app" and exe.is_dir())
+            self.executables_valids = [_exe_valid(e) for e in self.executables]
         self.executables_valid = all(self.executables_valids)
         if globals.gui:
             globals.gui.recalculate_ids = True
