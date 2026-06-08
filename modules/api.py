@@ -798,8 +798,16 @@ async def fast_check(games: list[Game], full=False):
     for game in games:
         last_changed = last_changes.get(str(game.id), 0)
         assert last_changed > 0, "Invalid last_changed from fast check API"
+        check_new_enums = False
+        if globals.version != game.last_check_version:
+            check_new_enums = (
+                Tag.unknown in game.tags or
+                game.type is Type.Unknown or
+                game.status is Status.Unknown
+            )
 
         this_full = full or (
+            check_new_enums or
             game.status is Status.Unchecked or
             last_changed > game.last_full_check or
             (game.image.missing and (game.image_url.startswith("http") or not game.image_url)) or
