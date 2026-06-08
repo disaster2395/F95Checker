@@ -10,8 +10,6 @@ from PyQt6 import (
     QtGui,
     QtNetwork,
     QtWebChannel,
-    QtWebEngineCore,
-    QtWebEngineWidgets,
     QtWidgets,
 )
 from PyQt6.QtNetwork import QNetworkProxy
@@ -153,6 +151,11 @@ def create(
         if proxy_config["password"]:
             proxy.setPassword(proxy_config["password"])
         QNetworkProxy.setApplicationProxy(proxy)
+
+    from PyQt6 import (
+        QtWebEngineCore,
+        QtWebEngineWidgets,
+    )
 
     app = QtWidgets.QApplication(sys.argv)
     app.pipe = ChildPipe()
