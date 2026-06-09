@@ -2138,11 +2138,12 @@ class MainGUI():
     def draw_game_info_popup(self, game: Game, carousel_ids: list = None, popup_uuid: str = ""):
         def popup_content():
             # Image
+            imgui.indent(imgui.style.scrollbar_size)
             image = game.image
             avail = imgui.get_content_region_available()
-            if imgui.get_scroll_max_y() > 0.0:
+            if imgui.get_scroll_max_y() <= 0.0:
                 # Avoid shifing content with/without scroll bar
-                avail = avail._replace(x=avail.x + imgui.style.scrollbar_size)
+                avail = avail._replace(x=avail.x - imgui.style.scrollbar_size)
             close_image = False
             zoom_popup = False
             out_height = (min(avail.y, self.scaled(690)) * self.scaled(0.4)) or 1
@@ -2229,6 +2230,7 @@ class MainGUI():
                 imgui.end_child()
                 imgui.set_cursor_pos(prev_pos)
                 imgui.dummy(out_width, out_height)
+            imgui.unindent(imgui.style.scrollbar_size)
             imgui.push_text_wrap_pos()
 
             imgui.push_font(imgui.fonts.big)
