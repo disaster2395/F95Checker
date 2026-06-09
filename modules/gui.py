@@ -5258,11 +5258,13 @@ class MainGUI():
                     space_after = 0
 
                 ratio = download.progress / (download.total or 1)
+                downd = download.progress
+                speed = downd / ((download.current - download.start) or 1)
                 width = imgui.get_content_region_available_width() - space_after
                 height = imgui.get_frame_height()
                 imgui.progress_bar(ratio, (width, height))
                 if download.state == download.State.Downloading:
-                    text = f"{ratio:.0%}"
+                    text = f"{utils.sizeof_fmt(downd):>7} {min(ratio, 99):>3.0%} ({utils.sizeof_fmt(speed):>7}/s)"
                 elif download.state == download.State.Stopped:
                     if not errored:
                         text = "Done!"
@@ -5282,6 +5284,7 @@ class MainGUI():
                 else:
                     text = f"{download.state.name}..."
                 imgui.same_line()
+                imgui.push_font(imgui.fonts.mono_sm)
                 draw_list = imgui.get_window_draw_list()
                 col = imgui.get_color_u32_rgba(1, 1, 1, 1)
                 text_size = imgui.calc_text_size(text)
@@ -5289,6 +5292,7 @@ class MainGUI():
                 text_x = screen_pos.x - (width + text_size.x) / 2 - imgui.style.item_spacing.x
                 text_y = screen_pos.y + (height - text_size.y) / 2
                 draw_list.add_text(text_x, text_y, col, text)
+                imgui.pop_font()
 
                 if download.state == download.State.Downloading:
                     if was_canceling := download.cancel:
