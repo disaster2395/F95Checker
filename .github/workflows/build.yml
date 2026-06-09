@@ -124,6 +124,11 @@ jobs:
           7z x compressonatorcli.zip
           rm -rf compressonatorcli-*/{documents,images}
           mv ./compressonatorcli-*/ ./dist/lib/compressonator/
+          if [ "$(head -n 1 ./dist/lib/compressonator/compressonatorcli)" = "" ]; then
+            tail -n +2 ./dist/lib/compressonator/compressonatorcli > ./dist/lib/compressonator/compressonatorcli.new
+            mv ./dist/lib/compressonator/compressonatorcli.new ./dist/lib/compressonator/compressonatorcli
+            chmod +x ./dist/lib/compressonator/compressonatorcli
+          fi
 
       - name: "Bundle astcenc+compressonator (Linux)"
         if: "runner.os == 'Linux'"
