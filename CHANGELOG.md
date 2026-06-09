@@ -6,6 +6,7 @@
 
 ### Fixed:
 - Fix updating on Windows when the app closes faster than Powershell starts (by @WillyJL)
+- Detect unsupported configurations with app data and app install locations overlapping (by @WillyJL)
 
 ### Removed:
 - Nothing
