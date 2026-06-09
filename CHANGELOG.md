@@ -5,7 +5,7 @@
 - Nothing
 
 ### Fixed:
-- Nothing
+- Fix updating on Windows when the app closes faster than Powershell starts (by @WillyJL)
 
 ### Removed:
 - Nothing
