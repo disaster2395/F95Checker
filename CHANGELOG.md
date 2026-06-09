@@ -1,5 +1,5 @@
 ### Added:
-- Nothing
+- Right click option on Refresh button to manually check app updates (by @WillyJL)
 
 ### Updated:
 - Nothing
