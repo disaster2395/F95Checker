@@ -10,6 +10,7 @@
 - Detect unsupported configurations with app data and app install locations overlapping (by @WillyJL)
 - Fix horizontal scrolling in more info popup (by @WillyJL)
 - Fix webview blank page on macOS (#269 by @cantunborn)
+- Fix bundled compressonator on Linux (by @WillyJL)
 
 ### Removed:
 - Nothing
