@@ -7,6 +7,7 @@
 ### Fixed:
 - Don't draw continuously while focused unless necessary (by @WillyJL)
 - Fix symbolic links in auto update (by @WillyJL)
+- Pick correct macOS update file if on x64 (by @WillyJL)
 
 ### Removed:
 - Removed "Interface > Render if unfocused" setting:

@@ -7,6 +7,7 @@ import io
 import json
 import os
 import pathlib
+import platform
 import re
 import shlex
 import shutil
@@ -1163,6 +1164,8 @@ async def check_updates():
         asset_name = None
         asset_size = None
         asset_type = globals.os.name.lower() if globals.frozen else "source"
+        if globals.frozen and globals.os is Os.MacOS:
+            asset_type += "-arm64" if platform.machine().lower() == "arm64" else "-x64"
         for asset in res["assets"]:
             if asset_type in asset["name"].lower():
                 asset_url = asset["browser_download_url"]
