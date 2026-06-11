@@ -12,6 +12,7 @@
 - Fix webview blank page on macOS (#269 by @cantunborn)
 - Fix bundled compressonator on Linux (by @WillyJL)
 - Improve responsiveness when resuming drawing (by @cantunborn)
+- Fix tray icon and menu theming on macOS (by @cantunborn & @WillyJL)
 
 ### Removed:
 - Nothing

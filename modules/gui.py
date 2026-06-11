@@ -636,27 +636,28 @@ class MainGUI():
         _ = \
             imgui.style.colors[imgui.COLOR_TEXT_DISABLED] = \
         globals.settings.style_text_dim
-        self.qt_app.setStyleSheet(f"""
-            QMenu {{
-                padding: 5px;
-                background-color: {colors.rgba_0_1_to_hex(globals.settings.style_bg)[:-2]};
-            }}
-            QMenu::item {{
-                margin: 1px;
-                padding: 2px 7px 2px 7px;
-                border-radius: {globals.settings.style_corner_radius};
-                color: {colors.rgba_0_1_to_hex(globals.settings.style_text)[:-2]};
-            }}
-            QMenu::item:disabled {{
-                color: {colors.rgba_0_1_to_hex(globals.settings.style_text_dim)[:-2]};
-            }}
-            QMenu::item:selected:enabled {{
-                background-color: {colors.rgba_0_1_to_hex(globals.settings.style_accent)[:-2]};
-            }}
-            QMenu::icon {{
-                padding-left: 7px;
-            }}
-        """)
+        if globals.os is not Os.MacOS:
+            self.qt_app.setStyleSheet(f"""
+                QMenu {{
+                    padding: 5px;
+                    background-color: {colors.rgba_0_1_to_hex(globals.settings.style_bg)[:-2]};
+                }}
+                QMenu::item {{
+                    margin: 1px;
+                    padding: 2px 7px 2px 7px;
+                    border-radius: {globals.settings.style_corner_radius};
+                    color: {colors.rgba_0_1_to_hex(globals.settings.style_text)[:-2]};
+                }}
+                QMenu::item:disabled {{
+                    color: {colors.rgba_0_1_to_hex(globals.settings.style_text_dim)[:-2]};
+                }}
+                QMenu::item:selected:enabled {{
+                    background-color: {colors.rgba_0_1_to_hex(globals.settings.style_accent)[:-2]};
+                }}
+                QMenu::icon {{
+                    padding-left: 7px;
+                }}
+            """)
 
     def refresh_fonts(self):
         imgui.io.fonts.clear()
@@ -5361,7 +5362,8 @@ class TrayIcon(QtWidgets.QSystemTrayIcon):
         self.menu.addAction(self.toggle_pause)
         self.menu.addAction(self.toggle_gui)
         self.menu.addAction(self.quit)
-        self.setContextMenu(self.menu)
+        if globals.os is not Os.MacOS:
+            self.setContextMenu(self.menu)
         self.menu_open = False
         self.menu.aboutToShow.connect(self.showing_menu)
         self.menu.aboutToHide.connect(self.hiding_menu)
@@ -5431,5 +5433,7 @@ class TrayIcon(QtWidgets.QSystemTrayIcon):
         self.update_icon()
 
     def activated_filter(self, reason: QtWidgets.QSystemTrayIcon.ActivationReason):
-        if reason in self.show_gui_events:
+        if globals.os is Os.MacOS and reason == QtWidgets.QSystemTrayIcon.ActivationReason.Context:
+            self.menu.popup(QtGui.QCursor.pos())
+        elif reason in self.show_gui_events:
             self.main_gui.show()
