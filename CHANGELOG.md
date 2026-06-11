@@ -1,18 +1,11 @@
 ### Added:
-- Right click option on Refresh button to manually check app updates (by @WillyJL)
-- Add Cmd+W shortcut to close window on macOS (#268 by @cantunborn)
+- Nothing
 
 ### Updated:
-- Show download size and speed in Donor DDL progress bar (#271 by @FaceCrap & @WillyJL)
+- Nothing
 
 ### Fixed:
-- Fix updating on Windows when the app closes faster than Powershell starts (by @WillyJL)
-- Detect unsupported configurations with app data and app install locations overlapping (by @WillyJL)
-- Fix horizontal scrolling in more info popup (by @WillyJL)
-- Fix webview blank page on macOS (#269 by @cantunborn)
-- Fix bundled compressonator on Linux (by @WillyJL)
-- Improve responsiveness when resuming drawing (by @cantunborn)
-- Fix tray icon and menu theming on macOS (by @cantunborn & @WillyJL)
+- Nothing
 
 ### Removed:
 - Nothing
