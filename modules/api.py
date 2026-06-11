@@ -861,20 +861,24 @@ async def full_check(game: Game, last_changed: int):
             url = f95_threads_page + str(game.id)
 
         # Redis only allows string values, so API only gives str for simplicity
-        thread["type"] = int(thread["type"])
-        if thread["type"] in Type:
-            thread["type"] = Type(thread["type"])
-        else:
+        try:
+            thread["type"] = Type(int(thread["type"]))
+        except ValueError:
             thread["type"] = Type.Unknown
-        thread["status"] = int(thread["status"])
-        if thread["status"] in Status:
-            thread["status"] = Status(thread["status"])
-        else:
+        try:
+            thread["status"] = Status(int(thread["status"]))
+        except ValueError:
             thread["status"] = Status.Unknown
         thread["last_updated"] = int(thread["last_updated"])
         thread["score"] = float(thread["score"])
         thread["votes"] = int(thread["votes"])
-        thread["tags"] = tuple((Tag(tag) if tag in Tag else Tag.unknown) for tag in json.loads(thread["tags"]))
+        thread["tags"] = json.loads(thread["tags"])
+        for i in range(len(thread["tags"])):
+            try:
+                thread["tags"][i] = Tag(thread["tags"][i])
+            except ValueError:
+                thread["tags"][i] = Tag.unknown
+        thread["tags"] = tuple(thread["tags"])
         thread["unknown_tags"] = json.loads(thread["unknown_tags"])
         thread["downloads"] = json.loads(thread["downloads"])
         for _, links in thread["downloads"]:
