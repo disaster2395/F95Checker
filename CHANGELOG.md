@@ -6,6 +6,7 @@
 
 ### Fixed:
 - Don't draw continuously while focused unless necessary (by @WillyJL)
+- Fix symbolic links in auto update (by @WillyJL)
 
 ### Removed:
 - Removed "Interface > Render if unfocused" setting:

@@ -12,6 +12,7 @@ import shlex
 import shutil
 import socket
 import ssl
+import stat
 import sys
 import tempfile
 import time
@@ -1240,9 +1241,17 @@ async def check_updates():
                 if cancel:
                     shutil.rmtree(asset_path, ignore_errors=True)
                     return
-                extracted = z.extract(file, asset_path)
-                if (attr := file.external_attr >> 16) != 0:
-                    os.chmod(extracted, attr)
+                mode = file.external_attr >> 16
+                if (mode & stat.S_IFLNK) == stat.S_IFLNK:
+                    extracted = asset_path / file.filename
+                    symlink = z.read(file).decode()
+                    os.symlink(symlink, extracted)
+                    if hasattr(os, "lchmod"):
+                        os.lchmod(extracted, mode)
+                else:
+                    extracted = z.extract(file, asset_path)
+                    if mode != 0:
+                        os.chmod(extracted, mode)
                 progress += 1
         progress = 5.0
         total = 5.0
