@@ -1,0 +1,24 @@
+project_name: "F95Checker"
+description: "Cross-platform desktop library manager and update checker for F95zone games"
+
+lsp:
+  language: "python"
+  command: "basedpyright-langserver"
+  args: ["--stdio"]
+  root_path: "."
+
+include:
+  - "common/**/*.py"
+  - "modules/**/*.py"
+  - "indexer/**/*.py"
+  - "external/**/*.py"
+  - "browser/**/*.js"
+  - "*.py"
+
+exclude:
+  - "__pycache__/**"
+  - "build/**"
+  - "dist/**"
+  - ".venv/**"
+  - ".github/**"
+  - "resources/**"
