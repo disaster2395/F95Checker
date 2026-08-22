@@ -285,6 +285,20 @@ def _track_launch(game: Game, process):
             remember(psutil.Process(process.pid))
         except psutil.Error:
             pass
+        session_start = time.time()
+        flushed = 0.0
+
+        def flush_playtime():
+            nonlocal flushed
+            global launch_state_changed
+            if game.launch_process is not process:
+                return
+            session = time.time() - session_start
+            game.playtime += session - flushed
+            flushed = session
+            game.launch_flushed = flushed
+            launch_state_changed = True
+
         deadline = time.time() + playing_grace_seconds
         while time.time() < deadline:
             try:
@@ -306,9 +320,13 @@ def _track_launch(game: Game, process):
                         pass
                 else:
                     await asyncio.sleep(1)
+                if time.time() - session_start - flushed >= 60:
+                    flush_playtime()
+        flush_playtime()
         if game.launch_process is process:
             game.launch_state = LaunchState.Idle
             game.launch_started = 0.0
+            game.launch_flushed = 0.0
             game.launch_process = None
             launch_state_changed = True
 
