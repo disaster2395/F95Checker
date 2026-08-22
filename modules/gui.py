@@ -2826,11 +2826,12 @@ class MainGUI():
                 "ascsd",
                 "GioBol",
                 "Jarulf",
+                "salkrim",
                 "rozzic",
                 "Belfaier",
                 "warez_gamez",
                 "DeadMoan",
-                "And 3 anons"
+                "And 4 anons"
             ]:
                 if imgui.get_content_region_available_width() < imgui.calc_text_size(name).x + self.scaled(20):
                     imgui.dummy(0, 0)
@@ -2847,6 +2848,8 @@ class MainGUI():
             imgui.text("FaceCrap: Multiple small fixes, improvements and finetuning")
             imgui.bullet()
             imgui.text("blackop: Proxy support, temporary ratelimit fix, linux login fix")
+            imgui.bullet()
+            imgui.text("cicklolwut: Security fixes, Linux wine/proton config, playtime stats")
             imgui.bullet()
             imgui.text("Sam: Support from F95zone side to make much this possible")
             imgui.bullet()

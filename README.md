@@ -242,8 +242,9 @@ Please note that this software is not ( yet ;) ) officially affiliated with the 
 Supporters:
 
 [FaceCrap](https://f95zone.to/members/2913051/) - [WhiteVanDaycare](https://f95zone.to/members/3509231/) - [ascsd](https://f95zone.to/members/3977760/) -
-[GioBol](https://f95zone.to/members/3716618/) - [Jarulf](https://f95zone.to/members/2709937/) - [rozzic](https://f95zone.to/members/449099/) -
-[Belfaier](https://f95zone.to/members/7363156/) - [warez_gamez](https://f95zone.to/members/81517/) - [DeadMoan](https://f95zone.to/members/4392187/) - And 3 anons
+[GioBol](https://f95zone.to/members/3716618/) - [Jarulf](https://f95zone.to/members/2709937/) - [salkrim](https://f95zone.to/members/3899517/) -
+[rozzic](https://f95zone.to/members/449099/) -[Belfaier](https://f95zone.to/members/7363156/) - [warez_gamez](https://f95zone.to/members/81517/) -
+[DeadMoan](https://f95zone.to/members/4392187/) - And 4 anons
 
 Contributors:
 
@@ -251,6 +252,7 @@ Contributors:
 - [littleraisins](https://github.com/littleraisins): Fixes, features and misc ideas from the (defunct) 'X' fork
 - [FaceCrap](https://github.com/FaceCrap): Multiple small fixes, improvements and finetuning
 - [blackop](https://github.com/disaster2395): Proxy support, temporary ratelimit fix, linux login fix
+- [cicklolwut](https://github.com/cicklolwut): Security fixes, Linux wine/proton config, playtime stats
 - [Sam](https://f95zone.to/members/7899/): Support from F95zone side to make much this possible
 - [GR3ee3N](https://github.com/GR3ee3N): Optimized build workflows and other PRs
 - [batblue](https://f95zone.to/members/4143766/): MacOS suppport and feedback guy
