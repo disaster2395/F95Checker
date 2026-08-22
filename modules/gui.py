@@ -36,6 +36,7 @@ from common.structs import (
     FilterMode,
     Game,
     Label,
+    LaunchState,
     MsgBox,
     Os,
     ProxyType,
@@ -898,6 +899,8 @@ class MainGUI():
                         imgui.io.mouse_wheel = scroll_now
 
                     # Redraw only when needed
+                    launch_changed = callbacks.launch_state_changed
+                    callbacks.launch_state_changed = False
                     draw = (
                         (api.downloads and any(dl.state in (dl.State.Verifying, dl.State.Extracting) for dl in api.downloads.values()))
                         or (imagehelper.redraw and globals.settings.play_gifs and (self.focused or globals.settings.play_gifs_unfocused))
@@ -912,6 +915,7 @@ class MainGUI():
                         or size != self.prev_size
                         or self.recalculate_ids
                         or self.new_styles
+                        or launch_changed
                         or api.updating
                     )
                     if draw:
@@ -1324,10 +1328,21 @@ class MainGUI():
                 valid = game.executables_valid
             if not valid:
                 imgui.push_style_color(imgui.COLOR_TEXT, 0.87, 0.20, 0.20)
+        launch_state = game.launch_state if game else LaunchState.Idle
+        if launch_state is LaunchState.Starting:
+            label = label.replace(" Play", " Starting")
+            imgui.push_style_color(imgui.COLOR_TEXT, 0.95, 0.75, 0.20)
+        elif launch_state is LaunchState.Playing:
+            label = label.replace(" Play", " Playing")
+            imgui.push_style_color(imgui.COLOR_TEXT, 0.30, 0.85, 0.35)
+        else:
+            launch_state = LaunchState.Idle  # Make sure we don't imgui.pop_style_color() after
         if selectable:
             clicked = imgui.selectable(label, False)[0]
         else:
             clicked = imgui.button(label)
+        if launch_state is not LaunchState.Idle:
+            imgui.pop_style_color()
         if game and (not game.executables or not valid):
             imgui.pop_style_color()
         if imgui.is_item_clicked(imgui.MOUSE_BUTTON_MIDDLE):

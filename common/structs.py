@@ -568,6 +568,13 @@ ExeState = IntEnumHack("ExeState", [
 ])
 
 
+LaunchState = IntEnumHack("LaunchState", [
+    ("Idle",     1),
+    ("Starting", 2),
+    ("Playing",  3),
+])
+
+
 MsgBox = IntEnumHack("MsgBox", [
     ("info",  (1, {"color": (0.10, 0.69, 0.95), "icon": "information"})),
     ("warn",  (2, {"color": (0.95, 0.69, 0.10), "icon": "alert_rhombus"})),
@@ -975,6 +982,9 @@ class Game:
     reviews_total      : int
     reviews            : list[Review]
     selected           : bool = False
+    launch_state       : str = ""
+    launch_started     : float = 0.0
+    launch_process     : typing.Any = None
     image              : "imagehelper.ImageHelper" = None
     executables_valids : list[bool] = None
     executables_valid  : bool = None
