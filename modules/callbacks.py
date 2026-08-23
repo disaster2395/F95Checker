@@ -9,6 +9,7 @@ import re
 import shlex
 import stat
 import subprocess
+import tempfile
 import time
 import typing
 
@@ -38,6 +39,7 @@ from modules import (
     msgbox,
     utils,
     webview,
+    wine,
 )
 
 
@@ -168,7 +170,17 @@ async def default_open(what: str, cwd: str = None):
         )
 
 
-async def _launch_exe(executable: str):
+launch_watch_seconds = 15
+launch_watchers = set()
+
+
+def resolve_launch_wrapper(game: Game):
+    if wrapper := game.launch_wrapper.get(globals.os, "").strip():
+        return wrapper
+    return globals.settings.default_launch_wrapper.get(globals.os, {}).get(game.type, "").strip()
+
+
+async def _launch_exe(executable: str, wrapper: str = ""):
     # Check URI scheme and launch with browser or default scheme handler
     if utils.is_uri(executable):
         if executable.startswith(("http://", "https://")):
@@ -189,6 +201,58 @@ async def _launch_exe(executable: str):
     if exe.suffix == ".html":
         open_webpage(exe.as_uri())
         return
+
+    if wrapper:
+        if wine.is_supported() and not wine.cache:
+            # Ensure wine.match_runner() will work
+            wine.refresh()
+        is_wine_wrapper = wine.is_supported() and wine.match_runner(wrapper)
+        args = shlex.split(wrapper)
+        if any("%command%" in arg for arg in args):
+            args = [arg.replace("%command%", str(exe)) for arg in args]
+        else:
+            args.append(str(exe))
+        stderr = subprocess.DEVNULL
+        if is_wine_wrapper:
+            wine.ensure_prefix(wrapper)
+            error_log_file = tempfile.NamedTemporaryFile(prefix="f95checker-launch-", suffix=".log", delete=False)
+            stderr = error_log_file
+        process = await asyncio.create_subprocess_exec(
+            *args,
+            cwd=str(exe.parent),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr
+        )
+        if is_wine_wrapper:
+            async def watch_wrapper():
+                try:
+                    code = await asyncio.wait_for(asyncio.shield(process.wait()), timeout=launch_watch_seconds)
+                except (asyncio.TimeoutError, TimeoutError):
+                    code = None
+                error_log_file.close()
+                if code:
+                    error_log = pathlib.Path(error_log_file.name).read_text(errors="ignore").strip()[-10000:]
+                    utils.push_popup(
+                        msgbox.msgbox, "Game launch error",
+                        f"The launch wrapper exited with code {code}.\n",
+                        MsgBox.error,
+                        more=(
+                            "Command:\n"
+                            f"{shlex.join(args)}\n"
+                            "\n"
+                            "Error log:\n"
+                            f"{error_log}"
+                        ),
+                    )
+                try:
+                    os.unlink(error_log_file.name)
+                except OSError:
+                    pass
+            watcher = asyncio.create_task(watch_wrapper())
+            launch_watchers.add(watcher)
+            watcher.add_done_callback(launch_watchers.discard)
+        return process
 
     windows_exe_magics = (b"MZ", b"ZM", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1")  # .exe and .msi
     unix_exe_magics = (b"#!", b"\x7FELF")  # Shebang and ELF
@@ -335,7 +399,7 @@ def _track_launch(game: Game, process):
 
 async def _launch_game_exe(game: Game, executable: str):
     try:
-        _track_launch(game, await _launch_exe(executable))
+        _track_launch(game, await _launch_exe(executable, wrapper=resolve_launch_wrapper(game)))
         game.last_launched = time.time()
         exe = pathlib.Path(executable)
         if utils.is_uri(executable):
