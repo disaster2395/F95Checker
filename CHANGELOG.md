@@ -13,4 +13,4 @@
 - Restrict RPC server CORS to the browser addon and f95zone.to (#287 by @cicklolwut)
 
 ### Removed:
-- Nothing
+- Collection and SiteRip thread types are gone, these are now detected as the appropriate animation/comic/game type
