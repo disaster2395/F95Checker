@@ -2,6 +2,11 @@
 - Exe launch wrappers (#289 by @cicklolwut & @WillyJL):
   - Allows setting custom arguments and wrapper commands for launching
   - Support for Wine/Proton on Linux/macOS
+- Allow selecting folders as executables (by @WillyJL):
+  - Works great together with Exe launch wrappers, so you can:
+    - specify all Video/GIF collections to be opened with a custom command for your media player
+    - select the folder as executable for each collection
+    - clicking Play will open all files in your media player
 - Show launch state on the play button (#288 by @cicklolwut)
 - Locally tracked playtime duration (#290 by @cicklolwut)
 

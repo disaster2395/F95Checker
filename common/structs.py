@@ -1058,10 +1058,10 @@ class Game:
                     if base in exe.parents:
                         self.executables[i] = exe.relative_to(base).as_posix()
                         changed = True
-                    executables_valids.append(exe.is_file() or (globals.os is Os.MacOS and exe.suffix == ".app" and exe.is_dir()))
+                    executables_valids.append(exe.is_file() or exe.is_dir())
                 else:
                     abs_exe = base / exe
-                    executables_valids.append(abs_exe.is_file() or (globals.os is Os.MacOS and abs_exe.suffix == ".app" and abs_exe.is_dir()))
+                    executables_valids.append(abs_exe.is_file() or abs_exe.is_dir())
             self.executables_valids = executables_valids
             if changed:
                 from external import async_thread

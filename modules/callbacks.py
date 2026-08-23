@@ -17,6 +17,7 @@ import glfw
 import imgui
 
 from common.structs import (
+    Category,
     Game,
     LaunchState,
     MsgBox,
@@ -115,6 +116,22 @@ def _fuzzy_match_subdir(where: pathlib.Path, match: str, best_partial_match: boo
 
 def add_game_exe(game: Game, callback: typing.Callable = None):
     use_uri = f"{icons.link_variant} Use URI"
+    use_dir = f"{icons.folder_outline} Use Dir"
+    use_file = f"{icons.file_outline} Use File"
+    def spawn_file_picker():
+        utils.push_popup(filepicker.FilePicker(
+            title=f"Select or drop executable for {game.name}",
+            start_dir=start_dir,
+            callback=select_callback,
+            buttons=[use_uri, use_dir]
+        ).tick)
+    def spawn_dir_picker():
+        utils.push_popup(filepicker.DirPicker(
+            title=f"Select or drop folder for {game.name}",
+            start_dir=start_dir,
+            callback=select_callback,
+            buttons=[use_uri, use_file]
+        ).tick)
     def select_callback(selected):
         if selected == use_uri:
             uri = ""
@@ -133,6 +150,12 @@ def add_game_exe(game: Game, callback: typing.Callable = None):
                 outside=False
             )
             return
+        elif selected == use_dir:
+            spawn_dir_picker()
+            return
+        elif selected == use_file:
+            spawn_file_picker()
+            return
         if selected:
             game.add_executable(selected)
         if callback:
@@ -145,12 +168,10 @@ def add_game_exe(game: Game, callback: typing.Callable = None):
             try_subdirs.append((game.name[:-len(" collection")], True))
         for subdir, best_partial_match in try_subdirs:
             start_dir = _fuzzy_match_subdir(start_dir, subdir, best_partial_match)
-    utils.push_popup(filepicker.FilePicker(
-        title=f"Select or drop executable for {game.name}",
-        start_dir=start_dir,
-        callback=select_callback,
-        buttons=[use_uri]
-    ).tick)
+    if game.type.category in (Category.Animations, Category.Comics):
+        spawn_dir_picker()
+    else:
+        spawn_file_picker()
 
 
 async def default_open(what: str, cwd: str = None):
@@ -195,7 +216,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
     if globals.os is Os.MacOS and exe.suffix == ".app" and exe.is_dir():
         await default_open(str(exe))
         return
-    if not exe.is_file():
+    if not exe.is_file() and not wrapper:
         raise FileNotFoundError()
 
     if exe.suffix == ".html":
