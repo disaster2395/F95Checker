@@ -174,7 +174,7 @@ launch_watch_seconds = 15
 launch_watchers = set()
 
 
-def resolve_launch_wrapper(game: Game):
+def _resolve_launch_wrapper(game: Game):
     if wrapper := game.launch_wrapper.get(globals.os, "").strip():
         return wrapper
     return globals.settings.default_launch_wrapper.get(globals.os, {}).get(game.type, "").strip()
@@ -399,7 +399,7 @@ def _track_launch(game: Game, process):
 
 async def _launch_game_exe(game: Game, executable: str):
     try:
-        _track_launch(game, await _launch_exe(executable, wrapper=resolve_launch_wrapper(game)))
+        _track_launch(game, await _launch_exe(executable, wrapper=_resolve_launch_wrapper(game)))
         game.last_launched = time.time()
         exe = pathlib.Path(executable)
         if utils.is_uri(executable):

@@ -1174,7 +1174,6 @@ class Game:
             "updated",
             "archived",
             "executables",
-            "launch_wrapper",
             "description",
             "changelog",
             "tags",

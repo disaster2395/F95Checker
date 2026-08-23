@@ -2413,6 +2413,7 @@ class MainGUI():
                 )
                 if changed:
                     game.launch_wrapper[globals.os] = value
+                    async_thread.run(db.update_game(game, "launch_wrapper"))
                 if imgui.begin_popup_context_item(f"###{game.id}_launch_wrapper_context"):
                     utils.text_context(game, "launch_wrapper", no_icons=True)
                     imgui.end_popup()
