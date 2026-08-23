@@ -907,8 +907,10 @@ class MainGUI():
                         imgui.io.mouse_wheel = scroll_now
 
                     # Redraw only when needed
-                    launch_changed = callbacks.launch_state_changed
+                    launch_state_changed = callbacks.launch_state_changed
                     callbacks.launch_state_changed = False
+                    popup_stack_changed = globals.popup_stack_changed
+                    globals.popup_stack_changed = False
                     draw = (
                         (api.downloads and any(dl.state in (dl.State.Verifying, dl.State.Extracting) for dl in api.downloads.values()))
                         or (imagehelper.redraw and globals.settings.play_gifs and (self.focused or globals.settings.play_gifs_unfocused))
@@ -922,8 +924,9 @@ class MainGUI():
                         or prev_hidden != self.hidden
                         or size != self.prev_size
                         or self.recalculate_ids
+                        or launch_state_changed
+                        or popup_stack_changed
                         or self.new_styles
-                        or launch_changed
                         or api.updating
                     )
                     if draw:
@@ -1018,6 +1021,7 @@ class MainGUI():
                             opened, closed = popup()
                             if closed:
                                 globals.popup_stack.remove(popup)
+                                globals.popup_stack_changed = True
                             open_popup_count += opened
                         # Popups are closed all at the end to allow stacking
                         for _ in range(open_popup_count):
