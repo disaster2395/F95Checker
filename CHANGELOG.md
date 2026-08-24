@@ -18,6 +18,7 @@
 - Fix window show/hide from other threads and from tray icon (#286 by @cicklolwut & @WillyJL)
 - Restrict RPC server CORS to the browser addon and f95zone.to (#287 by @cicklolwut)
 - Redraw UI when popups are opened/closed (by @WillyJL)
+- Donor DDL downloads can now be aborted correctly when stuck (by @WillyJL)
 
 ### Removed:
 - Collection and SiteRip thread types are gone, these are now detected as the appropriate animation/comic/game type

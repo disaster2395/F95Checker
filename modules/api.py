@@ -1440,7 +1440,14 @@ async def download_file(download: FileDownload):
                         download.total = req.content_length
 
                     try:
-                        async for (chunk, _) in req.content.iter_chunks():
+                        while True:
+                            try:
+                                rv = await asyncio.wait_for(req.content.readchunk(), timeout=0.25)
+                                if rv == (b"", False):
+                                    break
+                                (chunk, _) = rv
+                            except (asyncio.TimeoutError, TimeoutError):
+                                chunk = None
                             if download.cancel:
                                 download.error = "Interrupted by user"
                                 return
