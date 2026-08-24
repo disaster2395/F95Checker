@@ -749,17 +749,24 @@ class MainGUI():
 
     def load_filters(self):
         try:
+            # TODO: replace this with a better system, pickle is a disaster waiting to happen (and already kinda did, hence matching by IDs below)
             with open(globals.data_path / "filters.pkl", "rb") as file:
                 self.filters = pickle.load(file)
                 for flt in self.filters:
-                    match flt.mode:
-                        case FilterMode.Label:
-                            # Field added later, replace broken object with real one
-                            if not hasattr(flt.match, "position"):
-                                try:
-                                    flt.match = Label.get(flt.match.id)
-                                except Exception:
-                                    self.filters.remove(flt)
+                    try:
+                        match flt.mode:
+                            case FilterMode.Exe_State:
+                                flt.match = ExeState(flt.match.value)
+                            case FilterMode.Label:
+                                flt.match = Label.get(flt.match.id)
+                            case FilterMode.Status:
+                                flt.match = Status(flt.match.value)
+                            case FilterMode.Tag:
+                                flt.match = Tag(flt.match.value)
+                            case FilterMode.Type:
+                                flt.match = Type(flt.match.value)
+                    except Exception:
+                        self.filters.remove(flt)
         except Exception:
             self.filters = []
 
