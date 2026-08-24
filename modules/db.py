@@ -47,6 +47,7 @@ from modules import (
 )
 
 connection: aiosqlite.Connection = None
+label_positions_lock: asyncio.Lock = None
 
 
 @contextlib.contextmanager
@@ -159,7 +160,7 @@ async def create_table(table_name: str, columns: dict[str, str], renames: list[t
 
 
 async def connect():
-    global connection
+    global connection, label_positions_lock
 
     db_path = globals.data_path / "db.sqlite3"
 
@@ -185,6 +186,7 @@ async def connect():
 
     migrate = not db_path.is_file()
     connection = await aiosqlite.connect(db_path)
+    label_positions_lock = asyncio.Lock()
     connection.row_factory = aiosqlite.Row  # Return sqlite3.Row instead of tuple
 
     await create_table(
@@ -354,6 +356,7 @@ async def connect():
             "id":                          f'INTEGER PRIMARY KEY AUTOINCREMENT',
             "name":                        f'TEXT    DEFAULT ""',
             "color":                       f'TEXT    DEFAULT "#696969"',
+            "position":                    f'INTEGER DEFAULT 0',
         }
     )
     await create_table(
@@ -474,9 +477,11 @@ async def load():
     cursor = await connection.execute("""
         SELECT *
         FROM labels
+        ORDER BY id
     """)
     for label in await cursor.fetchall():
         Label.add(row_to_cls(label, Label))
+    Label.sort_instances()
 
     cursor = await connection.execute("""
         SELECT *
@@ -651,6 +656,16 @@ async def update_label(label: Label, *keys: list[str]):
     """, tuple(values))
 
 
+async def update_label_positions():
+    async with label_positions_lock:
+        positions = tuple((label.position, label.id) for label in Label.instances)
+        await connection.executemany("""
+            UPDATE labels
+            SET position=?
+            WHERE id=?
+        """, positions)
+
+
 async def delete_label(label: Label):
     await connection.execute(f"""
         DELETE FROM labels
@@ -663,18 +678,22 @@ async def delete_label(label: Label):
         if flt.match is label:
             globals.gui.filters.remove(flt)
     Label.remove(label)
+    Label.update_positions()
+    await update_label_positions()
 
 
 async def create_label():
     cursor = await connection.execute(f"""
         INSERT INTO labels
-        DEFAULT VALUES
-    """)
+        (position)
+        VALUES
+        (?)
+    """, (len(Label.instances),))
     cursor = await connection.execute(f"""
         SELECT *
         FROM labels
-        WHERE id={cursor.lastrowid}
-    """)
+        WHERE id=?
+    """, (cursor.lastrowid,))
     label = row_to_cls(await cursor.fetchone(), Label)
     Label.add(label)
     return label

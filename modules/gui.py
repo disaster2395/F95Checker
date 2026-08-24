@@ -751,6 +751,15 @@ class MainGUI():
         try:
             with open(globals.data_path / "filters.pkl", "rb") as file:
                 self.filters = pickle.load(file)
+                for flt in self.filters:
+                    match flt.mode:
+                        case FilterMode.Label:
+                            # Field added later, replace broken object with real one
+                            if not hasattr(flt.match, "position"):
+                                try:
+                                    flt.match = Label.get(flt.match.id)
+                                except Exception:
+                                    self.filters.remove(flt)
         except Exception:
             self.filters = []
 
@@ -4727,11 +4736,35 @@ class MainGUI():
             imgui.spacing()
 
         if draw_settings_section("Labels"):
-            buttons_offset = right_width - (3 * frame_height + 2 * imgui.style.item_spacing.x)
-            for label in Label.instances:
+            swap = None
+            for label_i, label in enumerate(Label.instances):
                 imgui.table_next_row()
                 imgui.table_next_column()
-                imgui.set_next_item_width(imgui.get_content_region_available_width() + buttons_offset + imgui.style.cell_padding.x)
+                if imgui.button(icons.filter_plus_outline, width=frame_height):
+                    flt = Filter(FilterMode.Label)
+                    flt.match = label
+                    self.filters.append(flt)
+                imgui.same_line()
+                if label_i == 0:
+                    imgui.push_disabled()
+                if imgui.button(icons.arrow_up, width=frame_height):
+                    swap = (label_i, label_i - 1)
+                if label_i == 0:
+                    imgui.pop_disabled()
+                imgui.same_line()
+                if label_i == len(Label.instances) - 1:
+                    imgui.push_disabled()
+                if imgui.button(icons.arrow_down, width=frame_height):
+                    swap = (label_i, label_i + 1)
+                if label_i == len(Label.instances) - 1:
+                    imgui.pop_disabled()
+                imgui.same_line()
+                changed, value = imgui.color_edit3(f"###label_color_{label.id}", *label.color[:3], flags=imgui.COLOR_EDIT_NO_INPUTS)
+                if changed:
+                    label.color = (*value, 1.0)
+                    async_thread.run(db.update_label(label, "color"))
+                imgui.same_line()
+                imgui.set_next_item_width(width - frame_height * 5 - imgui.style.cell_padding.x * 5 - imgui.style.scrollbar_size * (imgui.get_scroll_max_y() > 0.0))
                 changed, value = imgui.input_text_with_hint(f"###label_name_{label.id}", "Label name", label.name)
                 setter_extra = lambda _=None: async_thread.run(db.update_label(label, "name"))
                 if changed:
@@ -4740,20 +4773,16 @@ class MainGUI():
                 if imgui.begin_popup_context_item(f"###label_name_{label.id}_context"):
                     utils.text_context(label, "name", setter_extra)
                     imgui.end_popup()
-                imgui.table_next_column()
-                imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + buttons_offset)
-                changed, value = imgui.color_edit3(f"###label_color_{label.id}", *label.color[:3], flags=imgui.COLOR_EDIT_NO_INPUTS)
-                if changed:
-                    label.color = (*value, 1.0)
-                    async_thread.run(db.update_label(label, "color"))
-                imgui.same_line()
-                if imgui.button(icons.filter_plus_outline, width=frame_height):
-                    flt = Filter(FilterMode.Label)
-                    flt.match = label
-                    self.filters.append(flt)
                 imgui.same_line()
                 if imgui.button(icons.trash_can_outline, width=frame_height):
                     async_thread.run(db.delete_label(label))
+
+            if swap:
+                Label.instances[swap[0]], Label.instances[swap[1]] = Label.instances[swap[1]], Label.instances[swap[0]]
+                Label.update_positions()
+                for game in globals.games.values():
+                    game.labels.sort(key=lambda label: label.position)
+                async_thread.run(db.update_label_positions())
 
             draw_settings_label("New label:")
             if imgui.button("Add", width=right_width):
