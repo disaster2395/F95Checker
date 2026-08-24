@@ -5494,6 +5494,13 @@ class MainGUI():
                         if imgui.button(icons.open_in_app):
                             async_thread.run(callbacks.default_open(download.path))
                         imgui.same_line()
+                    else:
+                        if imgui.button(icons.refresh):
+                            async def _retry(download):
+                                await download.delete()
+                                async_thread.run(api.download_file(download))
+                            async_thread.run(_retry(download))
+                        imgui.same_line()
                     space_after = (
                         2 * (
                             2 * imgui.style.frame_padding.y +

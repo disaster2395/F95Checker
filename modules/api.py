@@ -1417,6 +1417,11 @@ async def download_file(download: FileDownload):
     try:
         download.path.parent.mkdir(parents=True, exist_ok=True)
         async with aiofiles.open(download.path, "wb") as file:
+            download.progress = 0
+            download.total = None
+            download.cancel = False
+            download.error = None
+            download.traceback = None
             download.state = download.State.Downloading
             download.start = time.time()
 
