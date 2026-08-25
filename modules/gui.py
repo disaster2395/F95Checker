@@ -1785,11 +1785,13 @@ class MainGUI():
 
     def draw_game_notes_widget(self, game: Game, multiline=True, width: int | float = None):
         if multiline:
+            available_height = imgui.get_content_region_available().y - imgui.style.item_spacing.y
+            content_height = imgui.get_text_line_height() * game.notes.count("\n") + imgui.get_frame_height_with_spacing() + imgui.style.frame_padding.y * 4
             changed, value = imgui.input_text_multiline(
                 f"###{game.id}_notes",
                 value=game.notes,
                 width=width or imgui.get_content_region_available_width(),
-                height=self.scaled(450)
+                height=max(available_height, content_height)
             )
             if changed:
                 game.notes = value
