@@ -235,6 +235,7 @@ async def connect():
             "play_gifs":                   f'INTEGER DEFAULT {int(True)}',
             "play_gifs_unfocused":         f'INTEGER DEFAULT {int(False)}',
             "preload_nearby_images":       f'INTEGER DEFAULT {int(False)}',
+            "previews_enabled":            f'INTEGER DEFAULT {int(False)}',
             "proxy_type":                  f'INTEGER DEFAULT {ProxyType.Disabled}',
             "proxy_host":                  f'TEXT    DEFAULT ""',
             "proxy_port":                  f'INTEGER DEFAULT 8080',
@@ -556,30 +557,37 @@ def py_to_sql(value: enum.Enum | Timestamp | bool | list | tuple | typing.Any):
 
 
 async def update_game_id(game: Game, new_id):
+    old_id = game.id
+    game.cancel_preview_loading()
+    game.unload_previews()
     await connection.execute(f"""
         UPDATE games
         SET
             id={new_id}
-        WHERE id={game.id}
+        WHERE id={old_id}
     """)
     globals.games[new_id] = game
-    if game.id != new_id:
-        del globals.games[game.id]
+    if old_id != new_id:
+        del globals.games[old_id]
 
     await connection.execute(f"""
         UPDATE timeline_events
         SET
             game_id={new_id}
-        WHERE game_id={game.id}
+        WHERE game_id={old_id}
     """)
     for event in game.timeline_events:
         event.game_id = new_id
 
-    for img in globals.images_path.glob(f"{game.id}.*"):
+    for img in globals.images_path.glob(f"{old_id}.*"):
         try:
             shutil.move(img, img.with_name(f"{new_id}{''.join(img.suffixes)}"))
         except Exception:
             pass
+    try:
+        shutil.move(globals.images_path / f"previews/{old_id}", globals.images_path / f"previews/{new_id}")
+    except Exception:
+        pass
     game.id = new_id
     game.refresh_image()
 
