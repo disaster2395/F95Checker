@@ -2351,12 +2351,13 @@ class MainGUI():
                     if not image.loaded:
                         # Don't show image but force it to load
                         _ = image.texture_id
+                        imgui.dummy(*size)
                     else:
                         crop = image.crop_to_ratio(size.x / size.y, fit=True)
                         image.render(*size, *crop)
-                        if imgui.is_item_clicked():
-                            imgui.close_current_popup()
-                            fullscreen_viewer_closed = True
+                    if imgui.is_item_clicked():
+                        imgui.close_current_popup()
+                        fullscreen_viewer_closed = True
                     imgui.end_popup()
                 imgui.pop_style_var(1)
 
