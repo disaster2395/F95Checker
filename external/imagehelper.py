@@ -1,6 +1,5 @@
 # https://gist.github.com/WillyJL/9c5116e5a11abd559c56f23aa1270de9
 import functools
-import gc
 import os
 import pathlib
 import platform
