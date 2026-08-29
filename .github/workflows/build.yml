@@ -55,6 +55,9 @@ jobs:
       - name: "Install requirements"
         run: |
           python -m pip install -U -r ./requirements.txt
+          python -m pip uninstall -y pillow
+          python -m pip install -U 'git+https://github.com/WillyJL/Pillow.git@fix/avif-decode-blocking'
+        # ^ While waiting for https://github.com/python-pillow/Pillow/pull/9930
 
       - name: "Mark as release"
         if: "github.event_name == 'release'"
