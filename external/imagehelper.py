@@ -46,7 +46,6 @@ ktx_magic = b"\xABKTX 11\xBB\r\n\x1A\n"
 zstd_level = 3
 zstd_magic = b"\x28\xB5\x2F\xFD"
 
-aastc_magic = b"\xA3\xAB\xA1\x5C"
 astc_block = "6x6"
 astc_format = gl_astc.GL_COMPRESSED_RGBA_ASTC_6x6_KHR
 astc_pixfmt = gl.GL_RGBA
@@ -249,14 +248,14 @@ class ImageHelper:
                 self._missing = True
                 return
             if globals.settings.tex_compress is TexCompress.ASTC:
-                # Prefer ASTC (including .aastc for migration), then .gif, then anything else, then other compression
-                sorting = lambda path: 1 if path.name.endswith((".astc.ktx.zst", ".aastc")) else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".bc7.ktx.zst") else 4
+                # Prefer ASTC, then .gif, then anything else, then other compression
+                sorting = lambda path: 1 if path.name.endswith(".astc.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".bc7.ktx.zst") else 4
             elif globals.settings.tex_compress is TexCompress.BC7:
                 # Prefer BC7, then .gif, then anything else, then other compression
-                sorting = lambda path: 1 if path.name.endswith(".bc7.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith((".astc.ktx.zst", ".aastc")) else 4
+                sorting = lambda path: 1 if path.name.endswith(".bc7.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".astc.ktx.zst") else 4
             else:
                 # Prefer .gif files, avoid compressed files unless nothing else available
-                sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix not in (".zst", ".aastc") else 3
+                sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix == ".zst" else 3
             paths.sort(key=sorting)
             self.resolved_path = paths[0]
 
@@ -265,10 +264,6 @@ class ImageHelper:
             ktx_path = self.resolved_path.with_suffix(f".{globals.settings.tex_compress.name.lower()}.ktx.zst")
             if ktx_path.is_file():
                 self.resolved_path = ktx_path
-            elif globals.settings.tex_compress is TexCompress.ASTC and self.resolved_path.suffix != ".aastc":
-                aastc_path = self.resolved_path.with_suffix(".aastc")
-                if aastc_path.is_file():
-                    self.resolved_path = aastc_path
 
         self._missing = not self.resolved_path.is_file()
 
@@ -426,58 +421,6 @@ class ImageHelper:
         ktx = zstd.compress(ktx, zstd_level)
         ktx_path = self.resolved_path.with_suffix(f".{format_name.lower()}.ktx.zst")
         ktx_path.write_bytes(ktx)
-        self.resolved_path = ktx_path
-        return True
-
-    def _migrate_aastc(self):
-        # ASTC file but with multiple payloads and durations, for animated textures
-        # Only for backwards compatibility, gets migrated to KTX
-        aastc = self.resolved_path.read_bytes()
-        magic = aastc[0:4]
-        if magic != aastc_magic:
-            self._set_invalid(f"AASTC malformed:\nWrong magic, {magic} != {aastc_magic}")
-            return False
-
-        block_x = aastc[4]
-        block_y = aastc[5]
-        block_z = aastc[6]
-        block = f"{block_x}x{block_y}"
-        if block_z != 1:
-            self._set_invalid(f"AASTC malformed:\n3D texture, only 2D supported")
-            return False
-        if block != astc_block:
-            self._set_invalid(f"AASTC malformed:\nWrong block size, {block} != {astc_block}")
-            return False
-
-        dim_x = struct.unpack("<I", aastc[7:10] + b"\0")[0]
-        dim_y = struct.unpack("<I", aastc[10:13] + b"\0")[0]
-        dim_z = struct.unpack("<I", aastc[13:16] + b"\0")[0]
-        if dim_z != 1:
-            self._set_invalid(f"AASTC malformed:\n3D texture, only 2D supported")
-            return False
-
-        frames = []
-        frames_data = aastc[16:]
-        data_pos = 0
-        while data_pos < len(frames_data):
-            texture_len = struct.unpack("<Q", frames_data[data_pos:data_pos + 8])[0]
-            data_pos += 8
-            duration = struct.unpack("<I", frames_data[data_pos:data_pos + 4])[0]
-            if duration < 1:
-                duration = 100
-            data_pos += 4
-            texture = frames_data[data_pos:data_pos + texture_len]
-            data_pos += texture_len
-            frames.append((texture, duration))
-
-        ktx = self._build_ktx(astc_format, astc_pixfmt, dim_x, dim_y, frames)
-        ktx = zstd.compress(ktx, zstd_level)
-        ktx_path = self.resolved_path.with_suffix(".astc.ktx.zst")
-        ktx_path.write_bytes(ktx)
-        try:
-            self.resolved_path.unlink(missing_ok=True)
-        except Exception:
-            pass
         self.resolved_path = ktx_path
         return True
 
@@ -697,10 +640,6 @@ class ImageHelper:
         if self._missing:
             self._set_invalid("Image file missing")
             return
-
-        if self.resolved_path.suffix == ".aastc":
-            if not self._migrate_aastc():
-                return
 
         if globals.settings.tex_compress is TexCompress.ASTC and not self.resolved_path.name.endswith(".astc.ktx.zst"):
             if not self._compress_astc():
