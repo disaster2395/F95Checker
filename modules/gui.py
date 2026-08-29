@@ -5312,6 +5312,12 @@ class MainGUI():
                     callback=select_callback
                 ).tick)
 
+            draw_settings_label(
+                "Extract downloads:",
+                "Whether to extract downloads, if they are archives. Currently, only F95zone Donor DDL downloads are supported in F95Checker."
+            )
+            draw_settings_checkbox("downloads_extract")
+
             draw_settings_label("Show remove button:")
             draw_settings_checkbox("show_remove_btn")
 

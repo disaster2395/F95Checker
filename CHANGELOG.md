@@ -22,6 +22,7 @@
 - Label reordering (#291 by @px-pole & WillyJL)
 - Donor DDL downloads can now be retried when failed (by @WillyJL)
 - Option to archive game when thread isn't found (by @WillyJL)
+- Setting to disable Donor DDL extraction, in Settings > Manage > Extract downloads (by @WillyJL)
 
 ### Updated:
 - Tex Compress transparently in background (by @WillyJL):

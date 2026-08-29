@@ -888,6 +888,7 @@ class Settings:
     display_mode                : DisplayMode
     display_tab                 : Tab.get
     downloads_dir               : dict[Os, str]
+    downloads_extract           : bool
     ext_background_add          : bool
     ext_highlight_tags          : bool
     ext_icon_glow               : bool
