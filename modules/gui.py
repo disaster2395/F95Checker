@@ -4608,7 +4608,7 @@ class MainGUI():
 
             draw_settings_label(
                 "Zoom on hover:",
-                "Allow zooming header images inside info popups.\n"
+                "Allow zooming cover images inside info popups.\n"
                 "Tip: hold shift and scroll while hovering the image to change the zoom amount, or hold shift and alt while "
                 "scrolling to change the zoom area."
             )
