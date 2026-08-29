@@ -8,6 +8,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import typing
 
@@ -38,6 +39,7 @@ redraw = False
 apply_queue = []
 unload_queue = []
 compress_counter = 0
+compress_thread = None
 _dummy_texture_id = None
 
 ktx_durations = b"durationsms\0"
@@ -56,6 +58,14 @@ bc7_format = gl_bptc.GL_COMPRESSED_RGBA_BPTC_UNORM_ARB
 bc7_pixfmt = gl.GL_RGBA
 compressonator_encoder = None
 compressonator = None
+
+
+def setup():
+    global compress_thread
+
+    compress_thread = threading.Thread(target=_compress_thread, daemon=True)
+    compress_thread.start()
+
 
 def _cpu_supports_hpc():
     from external import cpuinfo
@@ -150,6 +160,26 @@ def post_draw(draw_time: float):
                 break
 
 
+def _compress_thread():
+    while True:
+        if globals.settings.tex_compress is TexCompress.Disabled:
+            time.sleep(5)
+            continue
+
+        # Iterating over ImageHelper.instances (WeakerSet) holds a lock over it, blocking the main loop
+        # Since this is a lengthy operation, this is a very bad idea
+        # Instead we iterate once quickly to make a list, then try compressing
+        # Since it's a lengthy operation, after compressing we might be iterating over an out-of-sync copy of ImageHelper.instances
+        # That could mean there are since-deleted ImageHelper instances in our iterator copy, which we don't want to compress
+        # So break after each lengthy operation to update our iterator
+        for image in list(ImageHelper.instances):
+            if image._maybe_compress():
+                time.sleep(0)
+                break
+        else:  # Didn't break
+            time.sleep(5)
+
+
 def dummy_texture_id():
     global _dummy_texture_id
     if _dummy_texture_id is None:
@@ -198,13 +228,16 @@ class ImageHelper:
         "_missing",
         "prev_time",
         "animated",
-        "_error",
+        "_load_error",
+        "_compress_error",
+        "_pending_reload",
         "textures",
         "durations",
         "texture_ids",
         "resolved_path",
         "path",
         "shown",
+        "lock",
         "__weakref__",
     )
 
@@ -220,13 +253,15 @@ class ImageHelper:
         self._missing = None
         self.prev_time = 0.0
         self.animated = False
-        self._error: str = None
+        self._load_error: str = None
+        self._compress_error: str = None
         self.textures: list[bytes] = []
         self.durations: list[float] = []
         self.texture_ids: list[int] = []
         self.resolved_path: pathlib.Path = None
         self.path: pathlib.Path = pathlib.Path(path)
         self.shown = False
+        self.lock = threading.RLock()
         type(self).instances.add(self)
 
     @property
@@ -237,41 +272,50 @@ class ImageHelper:
 
     @property
     def error(self):
-        return self.loaded and self._error or None
+        if self._compress_error:
+            return self._compress_error
+        if self.loaded:
+            return self._load_error
+        return None
 
     def resolve(self):
-        self.resolved_path = self.path
-
-        if self.glob:
-            paths = list(self.resolved_path.glob(self.glob))
-            if not paths:
-                self._missing = True
+        with self.lock:
+            if self._missing is not None:
                 return
-            if globals.settings.tex_compress is TexCompress.ASTC:
-                # Prefer ASTC, then .gif, then anything else, then other compression
-                sorting = lambda path: 1 if path.name.endswith(".astc.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".bc7.ktx.zst") else 4
-            elif globals.settings.tex_compress is TexCompress.BC7:
-                # Prefer BC7, then .gif, then anything else, then other compression
-                sorting = lambda path: 1 if path.name.endswith(".bc7.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".astc.ktx.zst") else 4
-            else:
-                # Prefer .gif files, avoid compressed files unless nothing else available
-                sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix == ".zst" else 3
-            paths.sort(key=sorting)
-            self.resolved_path = paths[0]
 
-        # Choose compressed file by same name if not already using it
-        if globals.settings.tex_compress is not TexCompress.Disabled and self.resolved_path.suffix != ".zst":
-            ktx_path = self.resolved_path.with_suffix(f".{globals.settings.tex_compress.name.lower()}.ktx.zst")
-            if ktx_path.is_file():
-                self.resolved_path = ktx_path
+            self.resolved_path = self.path
 
-        self._missing = not self.resolved_path.is_file()
+            if self.glob:
+                paths = list(self.resolved_path.glob(self.glob))
+                if not paths:
+                    self._missing = True
+                    return
+                if globals.settings.tex_compress is TexCompress.ASTC:
+                    # Prefer ASTC, then .gif, then anything else, then other compression
+                    sorting = lambda path: 1 if path.name.endswith(".astc.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".bc7.ktx.zst") else 4
+                elif globals.settings.tex_compress is TexCompress.BC7:
+                    # Prefer BC7, then .gif, then anything else, then other compression
+                    sorting = lambda path: 1 if path.name.endswith(".bc7.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".astc.ktx.zst") else 4
+                else:
+                    # Prefer .gif files, avoid compressed files unless nothing else available
+                    sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix == ".zst" else 3
+                paths.sort(key=sorting)
+                self.resolved_path = paths[0]
 
-    def _set_invalid(self, err: str):
-        self._error = err
-        self.loaded = True
-        self.loading = False
-        unload_queue.append(self)
+            # Choose compressed file by same name if not already using it
+            if globals.settings.tex_compress is not TexCompress.Disabled and self.resolved_path.suffix != ".zst":
+                ktx_path = self.resolved_path.with_suffix(f".{globals.settings.tex_compress.name.lower()}.ktx.zst")
+                if ktx_path.is_file():
+                    self.resolved_path = ktx_path
+
+            self._missing = not self.resolved_path.is_file()
+
+    def _compress_set_invalid(self, err: str):
+        if self.loading:
+            return
+        self._compress_error = err
+        if self.loaded:
+            unload_queue.append(self)
 
     @classmethod
     def _build_ktx(cls, tex_format: int, tex_pixfmt: int, width: int, height: int, frames: list[tuple[bytes, int]]):
@@ -307,7 +351,7 @@ class ImageHelper:
 
         return ktx
 
-    def _ktx_compress(
+    def _compress_ktx(
         self,
         cli: typing.Callable[[str, str], list[str]],
         compressor_name: str,
@@ -318,12 +362,14 @@ class ImageHelper:
         texture_pixfmt: int,
         format_name: str,
     ):
-        if self.resolved_path.suffix == ".zst":
-            self._set_invalid(
+        path = self.resolved_path
+        if path.suffix == ".zst":
+            self._compress_set_invalid(
                 f"No source image available to compress to {format_name}!\n"
                 "Reset image in order to re-compress it"
             )
-            return False
+            return
+        data = path.read_bytes()
 
         global compress_counter
         ktx = None
@@ -354,26 +400,28 @@ class ImageHelper:
 
         try:
             # Identify image format
-            image = Image.open(self.resolved_path)
+            image = Image.open(path)
         except UnidentifiedImageError:
-            self._set_invalid(f"Pillow does not recognize this image format!")
-            return False
+            self._compress_set_invalid(f"Pillow does not recognize this image format!")
+            return
 
         frames_remaining = getattr(image, "n_frames", 1)
         compress_counter += frames_remaining
+        global redraw
+        redraw = True
         try:
 
             if image.format in supported_formats and not getattr(image, "is_animated", False):
                 # Image may be compressable as is, try it
-                ktx_temp, err = _ktx_compress_one(self.resolved_path)
+                ktx_temp, err = _ktx_compress_one(path)
                 if ktx_temp:
                     # Compressed as is, just keep the ktx
                     ktx = ktx_temp
                 else:
                     if unsupported_msg not in err:
                         # Something else went wrong, bail
-                        self._set_invalid(f"{compressor_name} failed to compress this image:\n{err.decode('utf-8', errors='replace')}")
-                        return False
+                        self._compress_set_invalid(f"{compressor_name} failed to compress this image:\n{err.decode('utf-8', errors='replace')}")
+                        return
                     # Image format not supported as is, use intermediary files
 
             if not ktx:
@@ -385,12 +433,12 @@ class ImageHelper:
                         frame.save(intermediary_path)
                         ktx_temp, err = _ktx_compress_one(intermediary_path)
                         if not ktx_temp:
-                            self._set_invalid(f"{compressor_name} failed to compress this image:\n{err.decode('utf-8', errors='replace')}")
-                            return False
+                            self._compress_set_invalid(f"{compressor_name} failed to compress this image:\n{err.decode('utf-8', errors='replace')}")
+                            return
                         magic = ktx_temp[0:12]
                         if magic != ktx_magic:
-                            self._set_invalid(f"{compressor_name} returned an invalid KTX file:\nWrong KTX magic, {magic} != {ktx_magic}")
-                            return False
+                            self._compress_set_invalid(f"{compressor_name} returned an invalid KTX file:\nWrong KTX magic, {magic} != {ktx_magic}")
+                            return
                         fmt = "<I" if struct.unpack("<I", ktx_temp[12:16])[0] == ktx_endianness else ">I"
                         if i == 0:
                             pix_w = struct.unpack(fmt, ktx_temp[36:40])[0]
@@ -408,8 +456,8 @@ class ImageHelper:
                         compress_counter -= 1
                     ktx = self._build_ktx(texture_format, texture_pixfmt, pix_w, pix_h, frames)
                 except Exception:
-                    self._set_invalid(f"Failed {compressor_name} intermediary step:\n{error.text()}")
-                    return False
+                    self._compress_set_invalid(f"Failed {compressor_name} intermediary step:\n{error.text()}")
+                    return
                 finally:
                     intermediary_path.unlink(missing_ok=True)
         finally:
@@ -417,17 +465,24 @@ class ImageHelper:
             image.close()
 
         if not ktx:
-            return False
+            return
         ktx = zstd.compress(ktx, zstd_level)
-        ktx_path = self.resolved_path.with_suffix(f".{format_name.lower()}.ktx.zst")
+        ktx_path = path.with_suffix(f".{format_name.lower()}.ktx.zst")
+
+        # Discard the result if source image was changed/deleted during compression
+        try:
+            if self.resolved_path != path or self.missing or self.resolved_path.read_bytes() != data:
+                return
+        except FileNotFoundError:
+            return
+
         ktx_path.write_bytes(ktx)
-        self.resolved_path = ktx_path
-        return True
+        self.reload()
 
     def _compress_astc(self):
         # Compress to ASTC
         if not _find_astcenc():
-            self._set_invalid(
+            self._compress_set_invalid(
                 f"ASTC-Encoder not found!\n" + (
                     "Was it deleted?"
                     if globals.frozen and (globals.release or globals.build_number) else
@@ -435,8 +490,8 @@ class ImageHelper:
                     "https://github.com/ARM-software/astc-encoder/releases/tag/5.1.0"
                 )
             )
-            return False
-        return self._ktx_compress(
+            return
+        self._compress_ktx(
             cli=lambda src, dst: [astcenc, "-cl", src, dst, astc_block, astc_quality, "-perceptual", "-silent"],
             compressor_name="ASTC-Encoder",
             supported_formats=("PNG", "JPEG", "BMP"),
@@ -450,7 +505,7 @@ class ImageHelper:
     def _compress_bc7(self):
         # Compress to BC7
         if not _find_compressonator():
-            self._set_invalid(
+            self._compress_set_invalid(
                 "BC7 compression isn't supported on MacOS!\n"
                 "Compressornator doesn't exist yet for MacOS"
                 if globals.os is Os.MacOS else
@@ -461,8 +516,8 @@ class ImageHelper:
                     "https://github.com/GPUOpen-Tools/compressonator/releases/tag/V4.5.52"
                 )
             )
-            return False
-        return self._ktx_compress(
+            return
+        self._compress_ktx(
             cli=lambda src, dst: [compressonator, "-fd", "BC7", "-EncodeWith", compressonator_encoder, "-NumThreads", str(os.cpu_count()), src, dst],
             compressor_name="Compressonator",
             supported_formats=("PNG", "JPEG", "BMP"),
@@ -473,11 +528,29 @@ class ImageHelper:
             format_name="BC7",
         )
 
+    def _maybe_compress(self):
+        if self._compress_error or self.loading or self.missing:
+            return False
+        if globals.images_path / "previews" in self.resolved_path.parents:
+            return False
+
+        if globals.settings.tex_compress is TexCompress.ASTC and not self.resolved_path.name.endswith(".astc.ktx.zst"):
+            self._compress_astc()
+            return True
+
+        if globals.settings.tex_compress is TexCompress.BC7 and not self.resolved_path.name.endswith(".bc7.ktx.zst"):
+            self._compress_bc7()
+            return True
+
+    def _load_set_invalid(self, err: str):
+        self._load_error = err
+        self.loaded = True
+        self.loading = False
 
     def _load_ktx_zst(self):
         # Load compressed KTX
         if not self.resolved_path.name.endswith((".astc.ktx.zst", ".bc7.ktx.zst")):
-            self._set_invalid(
+            self._load_set_invalid(
                 "Unknown KTX texture format!\n"
                 "Reset image in order to re-compress it"
             )
@@ -486,12 +559,13 @@ class ImageHelper:
         ktx = self.resolved_path.read_bytes()
         magic = ktx[0:4]
         if magic != zstd_magic:
-            self._set_invalid(f"KTX malformed:\nWrong ZSTD magic, {magic} != {zstd_magic}")
+            self._load_set_invalid(f"KTX malformed:\nWrong ZSTD magic, {magic} != {zstd_magic}")
+            return
         ktx = zstd.decompress(ktx)
 
         magic = ktx[0:12]
         if magic != ktx_magic:
-            self._set_invalid(f"KTX malformed:\nWrong KTX magic, {magic} != {ktx_magic}")
+            self._load_set_invalid(f"KTX malformed:\nWrong KTX magic, {magic} != {ktx_magic}")
             return
         fmt = "<I" if struct.unpack("<I", ktx[12:16])[0] == ktx_endianness else ">I"
 
@@ -501,24 +575,24 @@ class ImageHelper:
         gl_internal_format = struct.unpack(fmt, ktx[28:32])[0]
         gl_internal_pixfmt = struct.unpack(fmt, ktx[32:36])[0]
         if gl_type != 0 or gl_type_size != 1 or gl_format != 0:
-            self._set_invalid(f"KTX malformed:\nUncompressed texture, only ASTC (6x6) and BC7 supported")
+            self._load_set_invalid(f"KTX malformed:\nUncompressed texture, only ASTC (6x6) and BC7 supported")
             return
         if gl_internal_format not in (astc_format, bc7_format):
-            self._set_invalid(f"KTX malformed:\nUnknown format, only ASTC (6x6) and BC7 supported")
+            self._load_set_invalid(f"KTX malformed:\nUnknown format, only ASTC (6x6) and BC7 supported")
             return
         if gl_internal_format == astc_format:
             pixfmt = astc_pixfmt
         elif gl_internal_format == bc7_format:
             pixfmt = bc7_pixfmt
         if gl_internal_pixfmt != pixfmt:
-            self._set_invalid(f"KTX malformed:\nWrong pixel format for compression type")
+            self._load_set_invalid(f"KTX malformed:\nWrong pixel format for compression type")
             return
 
         pix_w = struct.unpack(fmt, ktx[36:40])[0]
         pix_h = struct.unpack(fmt, ktx[40:44])[0]
         pix_d = struct.unpack(fmt, ktx[44:48])[0]
         if pix_d != 0:
-            self._set_invalid(f"KTX malformed:\n3D texture, only 2D supported")
+            self._load_set_invalid(f"KTX malformed:\n3D texture, only 2D supported")
             return
         self.width = pix_w
         self.height = pix_h
@@ -528,10 +602,10 @@ class ImageHelper:
         faces_count = struct.unpack(fmt, ktx[52:56])[0]
         mipmap_count = struct.unpack(fmt, ktx[56:60])[0]
         if faces_count != 1:
-            self._set_invalid(f"KTX malformed:\nCubemap texture, only 2D supported")
+            self._load_set_invalid(f"KTX malformed:\nCubemap texture, only 2D supported")
             return
         if mipmap_count != 1:
-            self._set_invalid(f"KTX malformed:\nMipmapped texture, only non-mipmapped supported")
+            self._load_set_invalid(f"KTX malformed:\nMipmapped texture, only non-mipmapped supported")
             return
 
         durations = []
@@ -591,7 +665,7 @@ class ImageHelper:
         try:
             image = Image.open(self.resolved_path)
         except UnidentifiedImageError:
-            self._set_invalid(f"Pillow does not recognize this image format!")
+            self._load_set_invalid(f"Pillow does not recognize this image format!")
             return
 
         with image:
@@ -621,15 +695,16 @@ class ImageHelper:
         self.loading = False
 
     def load(self):
-        self.loaded = False
+        self._pending_reload = False
         self.loading = True
-        self.applied = False
-        self.resolve()
+
+        if self.missing:
+            self._load_set_invalid("Image file missing")
+            return
 
         self.frame = 0
         self.elapsed = 0.0
         self.textures.clear()
-        self._error = None
         self.animated = False
         self.durations.clear()
         # Don't reset width and height, keep ones from prior load (if any)
@@ -637,23 +712,13 @@ class ImageHelper:
         # If this is a reload, they're unlikely to have changed, and even if they did there is no harm in giving the old size while loading the new image
         # Actually, it helps with dynamically sized layouts: in the case where unload_offscreen_images is on, this keeps the layout from jumping around
 
-        if self._missing:
-            self._set_invalid("Image file missing")
-            return
-
-        if globals.settings.tex_compress is TexCompress.ASTC and not self.resolved_path.name.endswith(".astc.ktx.zst"):
-            if not self._compress_astc():
-                return
-
-        if globals.settings.tex_compress is TexCompress.BC7 and not self.resolved_path.name.endswith(".bc7.ktx.zst"):
-            if not self._compress_bc7():
-                return
-
         if self.resolved_path.name.endswith(".ktx.zst"):
             self._load_ktx_zst()
-            return
+        else:
+            self._load_rgba()
 
-        self._load_rgba()
+        if self._pending_reload:
+            self.reload()
 
     def apply(self, apply_time_max: float):
         apply_start = time.perf_counter()
@@ -672,7 +737,7 @@ class ImageHelper:
                 else:
                     gl.glCompressedTexImage2D(gl.GL_TEXTURE_2D, 0, texture_format, self.width, self.height, 0, texture)
             except gl.GLError:
-                self._error = "Error applying texture:\n" + error.text()
+                self._load_error = "Error applying texture:\n" + error.text()
                 break
             if time.perf_counter() - apply_start > apply_time_max:
                 break
@@ -691,12 +756,14 @@ class ImageHelper:
             if self.textures:
                 apply_queue.remove(self)
                 self.textures.clear()
-            if not self._missing and not self._error:
+            if not self._missing and not self._load_error:
                 self.loaded = False
 
     def reload(self):
         self._missing = None
-        self._error = None
+        self._load_error = None
+        self._compress_error = None
+        self._pending_reload = True
         unload_queue.append(self)
 
     @property
@@ -714,7 +781,7 @@ class ImageHelper:
                 # You could do this with https://gist.github.com/WillyJL/bb410bcc761f8bf5649180f22b7f3b44 like so:
                 sync_thread.queue(self.load)
         else:
-            if self._missing or self._error:
+            if self._missing or self._load_error:
                 return dummy_texture_id()
 
         if not self.texture_ids:

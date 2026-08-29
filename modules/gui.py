@@ -1004,10 +1004,10 @@ class MainGUI():
                             text = f"Validating {count} cached item{'s' if count > 1 else ''}..."
                         elif globals.last_update_check is None:
                             text = "Checking for updates..."
-                        elif (count := imagehelper.compress_counter) > 0:
-                            text = "Compressing images..." if count == 1 else f"Compressing {count} frames..."
                         elif api.f95_ratelimit_forum._waiters or api.f95_ratelimit_attachments._waiters or api.f95_ratelimit_sleeping.count:
                             text = f"Waiting for F95zone ratelimit..."
+                        elif (count := imagehelper.compress_counter) > 0:
+                            text = "Compressing images..." if count == 1 else f"Compressing {count} frames..."
                         else:
                             text = self.watermark_text
                         _3 = self.scaled(3)
@@ -2275,9 +2275,7 @@ class MainGUI():
             if globals.settings.previews_enabled and game.previews_urls:
                 if not game.previews_loaded and not game.previews_loading:
                     game.preview_load_future = async_thread.run(game.load_previews_async())
-                if (count := imagehelper.compress_counter) > 0:
-                    loading_text = " · Compressing images..." if count == 1 else f" · Compressing {count} frames..."
-                elif game.previews_loading and (count := api.images_counter.count) > 0:
+                if game.previews_loading and (count := api.images_counter.count) > 0:
                     loading_text = f" · Downloading {count} image{'s' if count > 1 else ''}..."
                 else:
                     loading_text = ""
