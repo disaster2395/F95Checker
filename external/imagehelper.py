@@ -465,7 +465,7 @@ class ImageHelper:
 
         if not ktx:
             return
-        ktx = zstd.compress(ktx, zstd_level)
+        ktx = zstd.compress(bytes(ktx), zstd_level)
         ktx_path = path.with_suffix(f".{format_name.lower()}.ktx.zst")
 
         # Discard the result if source image was changed/deleted during compression
