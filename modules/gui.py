@@ -2350,9 +2350,9 @@ class MainGUI():
                     imgui.set_scroll_y(1.0)
                     if int(imgui.get_scroll_y() - 1.0):
                         if globals.settings.scroll_smooth:
-                            diff = imgui.io.delta_time * self.scroll_energy
+                            diff = imgui.io.delta_time * self.scroll_energy * 4
                         else:
-                            diff = imgui.io.mouse_wheel / 10
+                            diff = imgui.io.mouse_wheel / 2.5
                         self.fullscreen_viewer_zoom = max(self.fullscreen_viewer_zoom + diff, 1.0)
                     if self.fullscreen_viewer_i:
                         image = game.preview_images[self.fullscreen_viewer_i - 1]
