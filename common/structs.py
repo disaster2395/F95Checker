@@ -1126,7 +1126,8 @@ class Game:
         """Release decoded preview data and GPU textures, keeping disk cache."""
         from external import imagehelper
         for image in self.preview_images:
-            imagehelper.unload_queue.append(image)
+            if image is not None:
+                imagehelper.unload_queue.append(image)
         self.preview_images.clear()
         self.previews_loaded = False
 
