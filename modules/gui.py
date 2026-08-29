@@ -2198,7 +2198,7 @@ class MainGUI():
             out_height = (min(avail.y, self.scaled(690)) * self.scaled(0.4)) or 1
             out_width = avail.x or 1
             if image.error:
-                self.draw_game_image_error(game, game.image, out_width, out_height)
+                self.draw_game_image_error(game, image, out_width, out_height)
             else:
                 aspect_ratio = image.height / image.width
                 if aspect_ratio > (out_height / out_width):
@@ -2362,9 +2362,10 @@ class MainGUI():
                     if image is None:
                         # Wait for preview to download
                         imgui.dummy(*size)
-                    elif not image.loaded:
-                        # Don't show image but force it to load
-                        _ = image.texture_id
+                    elif image.error:
+                        self.draw_game_image_error(game, image, *size)
+                    elif image.texture_id == imagehelper.dummy_texture_id():
+                        # Don't show dummy texture which is solid black
                         imgui.dummy(*size)
                     else:
                         crop = image.crop_to_ratio(size.x / size.y, fit=True)
