@@ -2297,6 +2297,13 @@ class MainGUI():
                         height=preview_height + 2 * imgui.style.window_padding.y,
                         flags=horizontal_flags,
                     )
+                    # Prioritize loading cover image
+                    cover_loaded = game.image.error or game.image.texture_id != imagehelper.dummy_texture_id()
+                    if cover_loaded:
+                        # Once cover is loaded, start loading previews in order and keep the loaded
+                        for preview in reversed(game.preview_images):
+                            if preview is not None:
+                                _ = preview.texture_id
                     first = True
                     for preview_i, preview in enumerate(game.preview_images):
                         if not first:
@@ -2312,11 +2319,14 @@ class MainGUI():
                             imgui.dummy(preview_width, preview_height)
                         elif preview.error:
                             self.draw_game_image_error(game, preview, preview_width, preview_height)
+                        elif not cover_loaded:
+                            # Wait for cover image to (start to) be loaded, trying to render previews would prioritize them
+                            imgui.dummy(preview_width, preview_height)
                         else:
                             preview.render(preview_width, preview_height, rounding=rounding)
-                            if imgui.is_item_clicked():
-                                fullscreen_viewer_start = True
-                                self.fullscreen_viewer_i = preview_i + 1
+                        if imgui.is_item_clicked():
+                            fullscreen_viewer_start = True
+                            self.fullscreen_viewer_i = preview_i + 1
                         first = False
                     imgui.end_child()
             imgui.push_text_wrap_pos()
