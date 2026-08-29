@@ -1,6 +1,5 @@
 # OpenGL + glfw
 PyOpenGL==3.1.10
-PyOpenGL-accelerate==3.1.10
 glfw==2.10.2
 
 # Interface stuff
