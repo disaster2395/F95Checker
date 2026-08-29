@@ -2301,13 +2301,16 @@ class MainGUI():
                     for preview_i, preview in enumerate(game.preview_images):
                         if not first:
                             imgui.same_line()
-                        if preview.width != 1 or preview.height != 1:
+                        if preview is not None and (preview.width != 1 or preview.height != 1):
                             aspect_ratio = preview.width / preview.height
                         else:
                             # Most images are 16:9, so use this as placeholder while images are loading
                             aspect_ratio = 16 / 9
                         preview_width = preview_height * aspect_ratio
-                        if preview.error:
+                        if preview is None:
+                            # Wait for preview to download
+                            imgui.dummy(preview_width, preview_height)
+                        elif preview.error:
                             self.draw_game_image_error(game, preview, preview_width, preview_height)
                         else:
                             preview.render(preview_width, preview_height, rounding=rounding)
@@ -2356,7 +2359,10 @@ class MainGUI():
                     else:
                         image = game.image
                     imgui.set_cursor_screen_pos((0, 0))
-                    if not image.loaded:
+                    if image is None:
+                        # Wait for preview to download
+                        imgui.dummy(*size)
+                    elif not image.loaded:
                         # Don't show image but force it to load
                         _ = image.texture_id
                         imgui.dummy(*size)
