@@ -319,7 +319,7 @@ class ImageHelper:
 
     @classmethod
     def _build_ktx(cls, tex_format: int, tex_pixfmt: int, width: int, height: int, frames: list[tuple[bytes, int]]):
-        ktx = ktx_magic  # identifier
+        ktx = bytearray(ktx_magic)  # identifier
         ktx += struct.pack("<I", ktx_endianness)  # endianness
         ktx += struct.pack("<I", 0)  # glType
         ktx += struct.pack("<I", 1)  # glTypeSize
@@ -389,7 +389,7 @@ class ImageHelper:
                     stderr=subprocess.STDOUT,
                     **kwargs,
                 )
-                ktx_temp = ktx_temp_path.read_bytes()
+                ktx_temp = bytearray(ktx_temp_path.read_bytes())
                 return ktx_temp, b""
             except subprocess.CalledProcessError as exc:
                 err = f"Process returned code {exc.returncode}\n".encode()
@@ -437,7 +437,7 @@ class ImageHelper:
                             return
                         magic = ktx_temp[0:12]
                         if magic != ktx_magic:
-                            self._compress_set_invalid(f"{compressor_name} returned an invalid KTX file:\nWrong KTX magic, {magic} != {ktx_magic}")
+                            self._compress_set_invalid(f"{compressor_name} returned an invalid KTX file:\nWrong KTX magic, {bytes(magic)} != {ktx_magic}")
                             return
                         fmt = "<I" if struct.unpack("<I", ktx_temp[12:16])[0] == ktx_endianness else ">I"
                         if i == 0:
@@ -451,7 +451,7 @@ class ImageHelper:
                         duration = int(frame.info.get("duration", 0))
                         if duration < 1:
                             duration = 100
-                        frames.append((texture, duration))
+                        frames.append((bytes(texture), duration))
                         frames_remaining -= 1
                         compress_counter -= 1
                     ktx = self._build_ktx(texture_format, texture_pixfmt, pix_w, pix_h, frames)
@@ -561,11 +561,11 @@ class ImageHelper:
         if magic != zstd_magic:
             self._load_set_invalid(f"KTX malformed:\nWrong ZSTD magic, {magic} != {zstd_magic}")
             return
-        ktx = zstd.decompress(ktx)
+        ktx = bytearray(zstd.decompress(ktx))
 
         magic = ktx[0:12]
         if magic != ktx_magic:
-            self._load_set_invalid(f"KTX malformed:\nWrong KTX magic, {magic} != {ktx_magic}")
+            self._load_set_invalid(f"KTX malformed:\nWrong KTX magic, {bytes(magic)} != {ktx_magic}")
             return
         fmt = "<I" if struct.unpack("<I", ktx[12:16])[0] == ktx_endianness else ">I"
 
@@ -631,7 +631,7 @@ class ImageHelper:
         while len(self.textures) < array_len and data_pos < len(frames_data):
             texture_len = struct.unpack(fmt, frames_data[data_pos:data_pos + 4])[0]
             data_pos += 4
-            texture = frames_data[data_pos:data_pos + texture_len]
+            texture = bytes(frames_data[data_pos:data_pos + texture_len])
             data_pos += texture_len
             self.textures.append((texture, gl_internal_format))
             if len(durations) < len(self.textures):
