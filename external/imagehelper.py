@@ -239,6 +239,7 @@ class ImageHelper:
         "_textures",
         "_texture_ids",
         "_pending_reload",
+        "_seamless_reload",
         "_prev_time",
         "_shown",
         "__weakref__",
@@ -263,7 +264,8 @@ class ImageHelper:
         self._compress_error: str = None
         self._textures: list[bytes] = []
         self._texture_ids: list[int] = []
-        self._pending_reload = None
+        self._pending_reload = False
+        self._seamless_reload = False
         self._prev_time = 0.0
         self._shown = False
         type(self).instances.add(self)
@@ -481,7 +483,8 @@ class ImageHelper:
             return
 
         ktx_path.write_bytes(ktx)
-        self.reload()
+        # Mark for reload without fully unloading, this prevents flickering
+        self.reload(unload=False)
 
     def _compress_astc(self):
         # Compress to ASTC
@@ -766,12 +769,15 @@ class ImageHelper:
             if not self._missing and not self._load_error:
                 self.loaded = False
 
-    def reload(self):
+    def reload(self, unload=True):
         self._missing = None
         self._load_error = None
         self._compress_error = None
         self._pending_reload = True
-        unload_queue.append(self)
+        if unload:
+            unload_queue.append(self)
+        elif self.loaded or self.loading:
+            self._seamless_reload = True
         with compress_thread_condition:
             compress_thread_condition.notify()
 
@@ -779,8 +785,10 @@ class ImageHelper:
     def texture_id(self):
         self._shown = True
 
-        if not self.loaded:
+        if not self.loaded or self._seamless_reload:
             if not self.loading:
+                if self._seamless_reload:
+                    self._seamless_reload = False
                 self.loading = True
                 self.applied = False
                 # This next self._load() actually loads the image and does all the conversion. It takes time and resources!
