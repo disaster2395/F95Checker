@@ -38,7 +38,8 @@ redraw = False
 apply_queue = []
 unload_queue = []
 compress_counter = 0
-compress_thread = None
+compress_thread: threading.Thread = None
+compress_thread_condition: threading.Condition = None
 _dummy_texture_id = None
 
 ktx_durations = b"durationsms\0"
@@ -60,8 +61,9 @@ compressonator = None
 
 
 def setup():
-    global compress_thread
+    global compress_thread_condition, compress_thread
 
+    compress_thread_condition = threading.Condition()
     compress_thread = threading.Thread(target=_compress_thread, daemon=True)
     compress_thread.start()
 
@@ -162,7 +164,8 @@ def post_draw(draw_time: float):
 def _compress_thread():
     while True:
         if globals.settings.tex_compress is TexCompress.Disabled:
-            time.sleep(5)
+            with compress_thread_condition:
+                compress_thread_condition.wait()
             continue
 
         # Iterating over ImageHelper.instances (WeakerSet) holds a lock over it, blocking the main loop
@@ -176,7 +179,8 @@ def _compress_thread():
                 time.sleep(0)
                 break
         else:  # Didn't break
-            time.sleep(5)
+            with compress_thread_condition:
+                compress_thread_condition.wait()
 
 
 def dummy_texture_id():
@@ -768,6 +772,8 @@ class ImageHelper:
         self._compress_error = None
         self._pending_reload = True
         unload_queue.append(self)
+        with compress_thread_condition:
+            compress_thread_condition.notify()
 
     @property
     def texture_id(self):

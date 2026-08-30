@@ -4715,6 +4715,8 @@ class MainGUI():
                 async_thread.run(db.update_settings("tex_compress"))
                 for image in imagehelper.ImageHelper.instances:
                     image.reload()
+                with imagehelper.compress_thread_condition:
+                    imagehelper.compress_thread_condition.notify()
 
             if set.tex_compress is TexCompress.Disabled:
                 imgui.push_disabled()
