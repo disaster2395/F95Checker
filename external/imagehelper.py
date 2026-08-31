@@ -304,7 +304,7 @@ class ImageHelper:
                     sorting = lambda path: 1 if path.name.endswith(".bc7.ktx.zst") else 2 if path.suffix == ".gif" else 3 if not path.name.endswith(".astc.ktx.zst") else 4
                 else:
                     # Prefer .gif files, avoid compressed files unless nothing else available
-                    sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix == ".zst" else 3
+                    sorting = lambda path: 1 if path.suffix == ".gif" else 2 if path.suffix != ".zst" else 3
                 paths.sort(key=sorting)
                 self._resolved_path = paths[0]
 
