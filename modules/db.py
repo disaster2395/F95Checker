@@ -273,7 +273,7 @@ async def connect():
             "tex_compress":                f'INTEGER DEFAULT {TexCompress.Disabled}',
             "tex_compress_replace":        f'INTEGER DEFAULT {int(False)}',
             "timestamp_format":            f'TEXT    DEFAULT "%d/%m/%Y %H:%M"',
-            "unload_offscreen_images":     f'INTEGER DEFAULT {int(False)}',
+            "unload_offscreen_images":     f'INTEGER DEFAULT {int(True)}',
             "vsync_ratio":                 f'INTEGER DEFAULT 1',
             "weighted_score":              f'INTEGER DEFAULT {int(False)}',
             "wine_extra_runners_dirs":     f'TEXT    DEFAULT "{{}}"',
