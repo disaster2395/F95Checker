@@ -61,7 +61,11 @@ from modules import (
     webview,
 )
 
-f95_domain = "f95zone.to"
+f95_domains = (
+    f95_domain := "f95zone.to",
+    f95_domain_com := "f95zone.com",
+    f95_domain_ninja := "f95zone.ninja"
+)
 f95_host = "https://" + f95_domain
 f95_check_login_fast    = f95_host + "/sam/latest_alpha/"
 f95_login_page          = f95_host + "/login/"
@@ -76,8 +80,8 @@ f95_latest_endpoint     = f95_host + "/sam/latest_alpha/latest_data.php?cmd={cmd
 f95_ddl_endpoint        = f95_host + "/sam/dddl.php"
 f95_attachments_hosts = (
     f"https://attachments.{f95_domain}/",
-    "https://attachments.f95zone.com/",
-    f95_attachments_rocks := "https://attachments.f95zone.rocks/",
+    f"https://attachments.{f95_domain_com}/",
+    f95_attachments_host_ninja := f"https://attachments.{f95_domain_ninja}/",
 )
 f95_no_ratelimit_urls = (
     f95_check_login_fast,
@@ -96,9 +100,11 @@ f95_ratelimit_forum_errors = (
 )
 f95_temp_error_messages = (
     b'<div id="cf-error-details" class="p-0">',
+    b'(function(){window._cf_chl_opt = {',
     b"<b>504 - Gateway Timeout .</b>",
     b"<title>502 Bad Gateway</title>",
     b"<title>Error 502</title>",
+    b"<title>Just a moment...</title>",
     b"An unexpected error occurred. Please try again later.",
     b"An unexpected database error occurred. Please try again later.\n<!--",
     b"<!-- Connection refused -->",
@@ -118,7 +124,7 @@ api_fast_check_max_ids = 10
 app_update_endpoint = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
 
 insecure_ssl_allowed_hosts = (
-    f95_attachments_rocks,  # Invalid SSL cert but still works and is ran by F95zone
+    f95_attachments_host_ninja,  # Invalid SSL cert but still works and is ran by F95zone
 )
 
 updating = False
@@ -250,7 +256,7 @@ def get_url_domain(url: str):
 
 
 def is_f95zone_url(url: str):
-    return bool(re.search(r"^https?://[^/]*\.?" + re.escape(f95_domain) + r"/", url))
+    return bool(re.search(r"^https?://[^/]*\.?(" + r"|".join(re.escape(domain) for domain in f95_domains) + r")/", url))
 
 
 def cookiedict(cookies: http.cookies.SimpleCookie):
@@ -275,10 +281,12 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         cookies = globals.cookies
     elif cookies is False:
         cookies = {}
-    is_ratelimit_request = url.startswith(f95_host) and not url.startswith(f95_no_ratelimit_urls)
+    is_forum_request = url.startswith(f95_host) and not url.startswith(f95_no_ratelimit_urls)
+    is_attachments_request = url.startswith(f95_attachments_hosts)
+    if_ratelimit_request = is_forum_request or is_attachments_request
     ratelimit_retries = 10
     ratelimit_sleep = 0
-    _can_ratelimit = lambda: is_ratelimit_request and ratelimit_retries > 1
+    _can_ratelimit = lambda: if_ratelimit_request and ratelimit_retries > 1
     async def _do_ratelimit():
         nonlocal ratelimit_retries, ratelimit_sleep
         ratelimit_retries -= 1
@@ -288,10 +296,10 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     while retries and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
-            maybe_ratelimit = f95_ratelimit if is_ratelimit_request else contextlib.nullcontext()
-            if not is_ratelimit_request and url.startswith(f95_host):
+            maybe_ratelimit = f95_ratelimit if if_ratelimit_request else contextlib.nullcontext()
+            if not if_ratelimit_request and url.startswith(f95_host):
                 # Don't ratelimit before request, but allow detecting and retrying if ratelimit happens
-                is_ratelimit_request = True
+                if_ratelimit_request = True
             async with maybe_ratelimit, session.request(
                 method,
                 url,
@@ -499,6 +507,43 @@ async def download_webpage(url: str):
     return pathlib.Path(f.name).as_uri()
 
 
+async def download_image(url: str):
+    with images_counter:
+        while True:
+            try:
+                res = await fetch("GET", url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
+            except aiohttp.ClientResponseError as exc:
+                if exc.status < 400:
+                    raise  # Not error status
+                if url.startswith("https://i.imgur.com"):
+                    url = "blocked"
+                else:
+                    url = "dead"
+                res = b""
+            except aiohttp.ClientConnectorError as exc:
+                # Try alternative F95zone hosts (-1 because we're checking to then use the next link)
+                changed_host = False
+                for host_i in range(len(f95_attachments_hosts) - 1):
+                    if url.startswith(f95_attachments_hosts[host_i]):
+                        url = f95_attachments_hosts[host_i + 1] + url.removeprefix(f95_attachments_hosts[host_i])
+                        changed_host = True
+                        break
+                if changed_host:
+                    continue
+                if not isinstance(exc.os_error, socket.gaierror):
+                    raise  # Not a dead host
+                if is_f95zone_url(url):
+                    raise  # Not a foreign host, raise normal connection error message
+                if (await check_host(f95_domain)) and not (await check_host(get_url_domain(url))):
+                    # Link is actually dead
+                    url = "dead"
+                    res = b""
+                else:
+                    raise  # Foreign host might not actually be dead
+            break  # Loop is only to retry with `continue`
+    return res, url
+
+
 def cleanup_temp_files():
     for item in pathlib.Path(tempfile.gettempdir()).glob(f"{temp_prefix}*"):
         try:
@@ -678,7 +723,7 @@ def open_search_popup(query: str):
         _f95zone_search_popup,
         buttons=True,
         closable=True,
-        outside=False
+        outside=True
     )
     async_thread.run(_f95zone_run_search())
 
@@ -863,10 +908,14 @@ async def full_check(game: Game, last_changed: int):
             raise_api_error(res)
             if req.status in (403, 404):
                 if not game.archived:
+                    def _archive_game(game: Game):
+                        game.archived = True
+                        game.updated = False
                     buttons = {
                         f"{icons.cancel} Do nothing": None,
                         f"{icons.trash_can_outline} Remove": lambda: callbacks.remove_game(game, bypass_confirm=True),
-                        f"{icons.puzzle_outline} Convert": lambda: callbacks.convert_f95zone_to_custom(game)
+                        f"{icons.puzzle_outline} Convert": lambda: callbacks.convert_f95zone_to_custom(game),
+                        f"{icons.archive_outline} Archive": lambda: _archive_game(game),
                     }
                     utils.push_popup(
                         msgbox.msgbox, "Thread not found",
@@ -874,10 +923,11 @@ async def full_check(game: Game, last_changed: int):
                         f"{game.name}\n"
                         "It might have been privated, moved or deleted, maybe for breaking forum rules.\n"
                         "\n"
-                        "You can remove this game from your library, or convert it to a custom game.\n"
-                        "Custom games are untied from F95zone and are not checked for updates, so\n"
-                        "you won't get this error anymore. You can later convert it back to an F95zone\n"
-                        "game from its info popup. You can also find more details there.",
+                        "You can remove this game from your library, convert it to a custom game, or archive it.\n"
+                        "Custom games are untied from F95zone and are not checked for updates, so you won't\n"
+                        "get this error anymore. You can later convert it back to an F95zone game from its info\n"
+                        "popup. You can also find more details there.\n"
+                        "Archiving the game will mute this error, but it will come back if you unarchive later on.",
                         MsgBox.error,
                         buttons=buttons
                     )
@@ -1029,44 +1079,11 @@ async def full_check(game: Game, last_changed: int):
                 globals.new_updated_games[game.id] = old_game
 
         if fetch_image and thread["image_url"] and thread["image_url"].startswith("http"):
-            with images_counter:
-                image_url = thread["image_url"]
-                while True:
-                    try:
-                        res = await fetch("GET", image_url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
-                    except aiohttp.ClientResponseError as exc:
-                        if exc.status < 400:
-                            raise  # Not error status
-                        if image_url.startswith("https://i.imgur.com"):
-                            thread["image_url"] = "blocked"
-                        else:
-                            thread["image_url"] = "dead"
-                        res = b""
-                    except aiohttp.ClientConnectorError as exc:
-                        # Try alternative F95zone hosts (-1 because we're checking to then use the next link)
-                        changed_host = False
-                        for host_i in range(len(f95_attachments_hosts) - 1):
-                            if image_url.startswith(f95_attachments_hosts[host_i]):
-                                image_url = f95_attachments_hosts[host_i + 1] + image_url.removeprefix(f95_attachments_hosts[host_i])
-                                changed_host = True
-                                break
-                        if changed_host:
-                            continue
-                        if not isinstance(exc.os_error, socket.gaierror):
-                            raise  # Not a dead host
-                        if is_f95zone_url(image_url):
-                            raise  # Not a foreign host, raise normal connection error message
-                        if (await check_host(f95_domain)) and not (await check_host(get_url_domain(image_url))):
-                            # Link is actually dead
-                            thread["image_url"] = "dead"
-                            res = b""
-                        else:
-                            raise  # Foreign host might not actually be dead
-                    break  # Loop is only to retry with `continue`
-                async def set_image_and_update_game():
-                    await game.set_image_async(res)
-                    await update_game()
-                await asyncio.shield(set_image_and_update_game())
+            data, thread["image_url"] = await download_image(thread["image_url"])
+            async def set_image_and_update_game():
+                await game.set_image_async(data)
+                await update_game()
+            await asyncio.shield(set_image_and_update_game())
         else:
             await asyncio.shield(update_game())
         globals.refresh_progress += 1
@@ -1112,6 +1129,7 @@ async def check_notifs(standalone=True, retry=False):
     for popup in globals.popup_stack:
         if popup.func is msgbox.msgbox and popup.args[0] == "Notifications":
             globals.popup_stack.remove(popup)
+            globals.popup_stack_changed = True
     if alerts != 0 and inbox != 0:
         msg = (
             f"You have {alerts + inbox} unread notifications!\n"
@@ -1365,6 +1383,7 @@ try {{
     for popup in globals.popup_stack:
         if popup.func is msgbox.msgbox and popup.args[0] == "F95Checker update":
             globals.popup_stack.remove(popup)
+            globals.popup_stack_changed = True
     if globals.frozen and globals.os is Os.MacOS:
         path = globals.self_path.parent.parent
     else:
@@ -1415,6 +1434,11 @@ async def download_file(download: FileDownload):
     try:
         download.path.parent.mkdir(parents=True, exist_ok=True)
         async with aiofiles.open(download.path, "wb") as file:
+            download.progress = 0
+            download.total = None
+            download.cancel = False
+            download.error = None
+            download.traceback = None
             download.state = download.State.Downloading
             download.start = time.time()
 
@@ -1438,7 +1462,14 @@ async def download_file(download: FileDownload):
                         download.total = req.content_length
 
                     try:
-                        async for (chunk, _) in req.content.iter_chunks():
+                        while True:
+                            try:
+                                rv = await asyncio.wait_for(req.content.readchunk(), timeout=0.25)
+                                if rv == (b"", False):
+                                    break
+                                (chunk, _) = rv
+                            except (asyncio.TimeoutError, TimeoutError):
+                                chunk = None
                             if download.cancel:
                                 download.error = "Interrupted by user"
                                 return
@@ -1461,7 +1492,7 @@ async def download_file(download: FileDownload):
                 download.error = f"{download.checksum[0].upper()} checksum mismatch"
                 return
 
-        if archive_format := shutil._find_unpack_format(str(download.path)):
+        if globals.settings.downloads_extract and (archive_format := shutil._find_unpack_format(str(download.path))):
             download.state = download.State.Extracting
             download.extracted = download.path.with_suffix("")
             await asyncio.get_event_loop().run_in_executor(
@@ -1671,7 +1702,7 @@ def open_ddl_popup(game: Game):
         _f95_ddl_popup,
         buttons=True,
         closable=True,
-        outside=False,
+        outside=True,
         footer="Thanks for supporting F95zone!"
     )
     async_thread.run(_ddl_load_files())

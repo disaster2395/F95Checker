@@ -28,6 +28,9 @@ def main():
         api.make_api_wrapper()
         api.make_ratelimiter()
 
+        from external import imagehelper
+        imagehelper.setup()
+
         from modules import gui
         globals.gui = gui.MainGUI()
 

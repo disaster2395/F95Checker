@@ -144,6 +144,7 @@ def start_refresh_task(coro: typing.Coroutine, reset_bg_timers=True, notify_new_
             for popup in globals.popup_stack:
                 if popup.func is type(globals.gui).draw_updates_popup:
                     globals.popup_stack.remove(popup)
+                    globals.popup_stack_changed = True
             push_popup(type(globals.gui).draw_updates_popup, globals.gui).uuid = "updates"
             if globals.gui.hidden or not globals.gui.focused:
                 image = None
@@ -204,7 +205,7 @@ def constrain_next_window():
 def close_weak_popup():
     if imgui.is_topmost():
         # This is the topmost popup
-        if imgui.io.keys_down[glfw.KEY_ESCAPE]:
+        if imgui.is_key_pressed(glfw.KEY_ESCAPE):
             # Escape is pressed
             imgui.close_current_popup()
             return True
@@ -346,6 +347,7 @@ def push_popup(*args, bottom=False, **kwargs):
         globals.popup_stack.insert(0, popup)
     else:
         globals.popup_stack.append(popup)
+    globals.popup_stack_changed = True
     if notify:
         notification_proc.notify(
             title="Oops",
