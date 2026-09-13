@@ -118,20 +118,16 @@ def add_game_exe(game: Game, callback: typing.Callable = None):
     use_uri = f"{icons.link_variant} Use URI"
     use_dir = f"{icons.folder_outline} Use Dir"
     use_file = f"{icons.file_outline} Use File"
-    def spawn_file_picker():
-        utils.push_popup(filepicker.FilePicker(
-            title=f"Select or drop executable for {game.name}",
-            start_dir=start_dir,
-            callback=select_callback,
-            buttons=[use_uri, use_dir]
-        ).tick)
-    def spawn_dir_picker():
-        utils.push_popup(filepicker.DirPicker(
-            title=f"Select or drop folder for {game.name}",
-            start_dir=start_dir,
-            callback=select_callback,
-            buttons=[use_uri, use_file]
-        ).tick)
+    def switch_to_file_picker():
+        picker.dir_picker = False
+        picker.buttons = [use_uri, use_dir]
+        picker.active = True
+        utils.push_popup(picker.tick)
+    def switch_to_dir_picker():
+        picker.dir_picker = True
+        picker.buttons = [use_uri, use_file]
+        picker.active = True
+        utils.push_popup(picker.tick)
     def select_callback(selected):
         if selected == use_uri:
             uri = ""
@@ -151,10 +147,10 @@ def add_game_exe(game: Game, callback: typing.Callable = None):
             )
             return
         elif selected == use_dir:
-            spawn_dir_picker()
+            switch_to_dir_picker()
             return
         elif selected == use_file:
-            spawn_file_picker()
+            switch_to_file_picker()
             return
         if selected:
             game.add_executable(selected)
@@ -169,9 +165,20 @@ def add_game_exe(game: Game, callback: typing.Callable = None):
         for subdir, best_partial_match in try_subdirs:
             start_dir = _fuzzy_match_subdir(start_dir, subdir, best_partial_match)
     if game.type.category in (Category.Animations, Category.Comics):
-        spawn_dir_picker()
+        picker = filepicker.FilePicker(
+            title=f"Select or drop executable for {game.name}",
+            start_dir=start_dir,
+            callback=select_callback,
+            buttons=[use_uri, use_dir]
+        )
     else:
-        spawn_file_picker()
+        picker = filepicker.DirPicker(
+            title=f"Select or drop executable for {game.name}",
+            start_dir=start_dir,
+            callback=select_callback,
+            buttons=[use_uri, use_dir]
+        )
+    utils.push_popup(picker.tick)
 
 
 async def default_open(what: str, cwd: str = None):
