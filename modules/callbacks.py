@@ -209,27 +209,18 @@ def _resolve_launch_wrapper(game: Game):
 
 
 async def _launch_exe(executable: str, wrapper: str = ""):
-    # Check URI scheme and launch with browser or default scheme handler
+    # Prepare the final exe string and cwd to launch with (if any)
     if utils.is_uri(executable):
-        if executable.startswith(("http://", "https://")):
-            open_webpage(executable)
-        else:
-            await default_open(executable)
-        return
+        exe = executable
+        cwd = None
+    else:
+        exe_path = pathlib.Path(executable)
+        if globals.settings.default_exe_dir.get(globals.os) and not exe_path.is_absolute():
+            exe_path = pathlib.Path(globals.settings.default_exe_dir.get(globals.os)) / exe_path
+        exe = str(exe_path)
+        cwd = exe_path.parent
 
-    exe = pathlib.Path(executable)
-    if globals.settings.default_exe_dir.get(globals.os) and not exe.is_absolute():
-        exe = pathlib.Path(globals.settings.default_exe_dir.get(globals.os)) / exe
-    if globals.os is Os.MacOS and exe.suffix == ".app" and exe.is_dir():
-        await default_open(str(exe))
-        return
-    if not exe.is_file() and not wrapper:
-        raise FileNotFoundError()
-
-    if exe.suffix == ".html":
-        open_webpage(exe.as_uri())
-        return
-
+    # Always give precedence to wrappers (if any), since they might open the file/uri/folder in some user-defined way, do no custom handling in this case
     if wrapper:
         if wine.is_supported() and not wine.cache:
             # Ensure wine.match_runner() will work
@@ -237,9 +228,9 @@ async def _launch_exe(executable: str, wrapper: str = ""):
         is_wine_wrapper = wine.is_supported() and wine.match_runner(wrapper)
         args = shlex.split(wrapper)
         if any("%command%" in arg for arg in args):
-            args = [arg.replace("%command%", str(exe)) for arg in args]
+            args = [arg.replace("%command%", exe) for arg in args]
         else:
-            args.append(str(exe))
+            args.append(exe)
         stderr = subprocess.DEVNULL
         if is_wine_wrapper:
             wine.ensure_prefix(wrapper)
@@ -247,7 +238,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
             stderr = error_log_file
         process = await asyncio.create_subprocess_exec(
             *args,
-            cwd=str(exe.parent),
+            cwd=cwd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=stderr
@@ -282,37 +273,60 @@ async def _launch_exe(executable: str, wrapper: str = ""):
             watcher.add_done_callback(launch_watchers.discard)
         return process
 
+    # Launch URIs with configured browser or default scheme handler
+    if utils.is_uri(exe):
+        if exe.startswith(("http://", "https://")):
+            open_webpage(exe)
+        else:
+            await default_open(exe)
+        return
+
+    # Let the OS launch macOS .app bundles
+    if globals.os is Os.MacOS and exe_path.suffix == ".app" and exe_path.is_dir():
+        await default_open(exe)
+        return
+
+    # By now we should be dealing with an actual file
+    if not exe_path.is_file():
+        raise FileNotFoundError()
+
+    # Open HTML in configured browser
+    if exe_path.suffix == ".html":
+        open_webpage(exe_path.as_uri())
+        return
+
     windows_exe_magics = (b"MZ", b"ZM", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1")  # .exe and .msi
     unix_exe_magics = (b"#!", b"\x7FELF")  # Shebang and ELF
     if globals.os is Os.Windows:
-        with exe.open("rb") as f:
+        with exe_path.open("rb") as f:
             exe_magic = f.read(8).startswith(windows_exe_magics)
         if exe_magic:
             # Run as executable and get PID
             try:
                 return await asyncio.create_subprocess_exec(
-                    str(exe),
-                    cwd=str(exe.parent),
+                    exe,
+                    cwd=cwd,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
             except OSError:
                 pass
-        # Open with default app
-        await default_open(str(exe), cwd=str(exe.parent))
+        else:
+            # Open with default app
+            await default_open(exe, cwd=cwd)
     else:
-        mode = exe.stat().st_mode
+        mode = exe_path.stat().st_mode
         exe_flag = not (mode & stat.S_IEXEC < stat.S_IEXEC)
-        with exe.open("rb") as f:
+        with exe_path.open("rb") as f:
             exe_magic = f.read(8).startswith((*unix_exe_magics, *windows_exe_magics))
         if exe_magic and not exe_flag:
             # Should be executable but isn't, fix it
-            exe.chmod(mode | stat.S_IEXEC)
+            exe_path.chmod(mode | stat.S_IEXEC)
             exe_flag = True
-        if (exe.parent / "renpy").is_dir():
+        if (exe_path.parent / "renpy").is_dir():
             # Make all needed renpy libs executable
-            for file in (exe.parent / "lib").glob("py?-*/**/*"):
+            for file in (exe_path.parent / "lib").glob("py?-*/**/*"):
                 if file.is_file():
                     mode = file.stat().st_mode
                     if mode & stat.S_IEXEC < stat.S_IEXEC:
@@ -320,15 +334,15 @@ async def _launch_exe(executable: str, wrapper: str = ""):
         if exe_magic and exe_flag:
             # Run as executable and get PID
             return await asyncio.create_subprocess_exec(
-                str(exe),
-                cwd=str(exe.parent),
+                exe,
+                cwd=cwd,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
         else:
             # Open with default app
-            await default_open(str(exe), cwd=str(exe.parent))
+            await default_open(exe, cwd=cwd)
 
 
 playing_grace_seconds = 3
