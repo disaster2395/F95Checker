@@ -818,7 +818,7 @@ def last_check_before(before_version: str, checked_version: str):
     return is_before
 
 
-async def fast_check(games: list[Game], full=False):
+async def fast_check(games: list[Game], full: bool, updates: dict[int, OldGame]):
     games = list(filter(lambda game: not game.custom, games))
 
     global fast_checks_counter
@@ -874,7 +874,7 @@ async def fast_check(games: list[Game], full=False):
 
     tasks: list[asyncio.Task] = []
     try:
-        tasks = [asyncio.create_task(full_check(game, ts)) for game, ts in full_queue]
+        tasks = [asyncio.create_task(full_check(game, ts, updates)) for game, ts in full_queue]
         await asyncio.gather(*tasks)
     except Exception:
         for task in tasks:
@@ -882,7 +882,7 @@ async def fast_check(games: list[Game], full=False):
         raise
 
 
-async def full_check(game: Game, last_changed: int):
+async def full_check(game: Game, last_changed: int, updates: dict[int, OldGame]):
     async with full_checks_counter, full_checks_sem:
 
         async with request("GET", api_full_check_url.format(id=game.id, ts=last_changed), timeout=globals.settings.request_timeout * 2, cookies=False) as (res, req):
@@ -1057,7 +1057,7 @@ async def full_check(game: Game, last_changed: int):
                     version=old_version,
                     status=old_status,
                 )
-                globals.new_updated_games[game.id] = old_game
+                updates[game.id] = old_game
 
         if fetch_image and thread["image_url"] and thread["image_url"].startswith("http"):
             data, thread["image_url"] = await download_image(thread["image_url"])
@@ -1408,6 +1408,7 @@ async def refresh(*games: Game, full=False, notifs=True, force_archived=False, f
     notifs = notifs and globals.settings.check_notifs
     globals.refresh_progress += 1
     globals.refresh_total += sum(len(chunk) for chunk in fast_queue) + bool(notifs)
+    updates: dict[int, OldGame] = {}
 
     global fast_checks_sem, full_checks_sem, fast_checks_counter
     fast_checks_sem = asyncio.Semaphore(1)
@@ -1415,7 +1416,7 @@ async def refresh(*games: Game, full=False, notifs=True, force_archived=False, f
     fast_checks_counter = 0
     tasks: list[asyncio.Task] = []
     try:
-        tasks = [asyncio.create_task(fast_check(chunk, full=full)) for chunk in fast_queue]
+        tasks = [asyncio.create_task(fast_check(chunk, full, updates)) for chunk in fast_queue]
         await asyncio.gather(*tasks)
     except Exception:
         for task in tasks:
@@ -1427,6 +1428,31 @@ async def refresh(*games: Game, full=False, notifs=True, force_archived=False, f
     fast_checks_sem = None
     full_checks_sem = None
     fast_checks_counter = 0
+
+    if updates or globals.updates:
+        if updates:
+            globals.updates.update(updates)
+            first = list(updates.keys())[0]
+        else:
+            first = list(globals.updates.keys())[0]
+        globals.updates_sorted_ids = sorted(globals.updates.keys(), key=lambda id: globals.games[id].type.category.value)
+        for popup in globals.popup_stack:
+            if popup.func is type(globals.gui).draw_updates_popup:
+                globals.popup_stack.remove(popup)
+                globals.popup_stack_changed = True
+        utils.push_popup(type(globals.gui).draw_updates_popup, globals.gui).uuid = "updates"
+        if globals.gui.hidden or not globals.gui.focused:
+            image = None
+            if globals.settings.notifs_show_update_banner:
+                image_paths = list(filter(lambda f: f.suffix != ".zst", globals.images_path.glob(f"{first}.*")))
+                if image_paths:
+                    image = desktop_notifier.Attachment(path=image_paths[0])
+            count = len(globals.updates)
+            notification_proc.notify(
+                title="Updates",
+                msg=f"{count} item{'' if count == 1 else 's'} in your library {'has' if count == 1 else 'have'} received updates!",
+                attachment=image,
+            )
 
     if notifs:
         await check_notifs(standalone=False)

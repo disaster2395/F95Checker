@@ -1127,7 +1127,7 @@ class MainGUI():
                             elif self.bg_mode_notifs_timer and time.time() > self.bg_mode_notifs_timer:
                                 # Run scheduled notif check
                                 self.bg_mode_notifs_timer = None
-                                utils.start_refresh_task(api.check_notifs(standalone=True), reset_bg_timers=False, notify_new_games=False)
+                                utils.start_refresh_task(api.check_notifs(standalone=True), reset_bg_timers=False)
                     # Wait idle time
                     if self.tray.menu_open:
                         time.sleep(1 / 60)
@@ -2090,11 +2090,11 @@ class MainGUI():
             category_open = False
             imgui.push_text_wrap_pos(full_width)
             imgui.indent(indent)
-            for game_i, id in enumerate(globals.updated_games_sorted_ids):
+            for game_i, id in enumerate(globals.updates_sorted_ids):
                 if id not in globals.games:
-                    globals.updated_games_sorted_ids.remove(id)
+                    globals.updates_sorted_ids.remove(id)
                     continue
-                old_game = globals.updated_games[id]
+                old_game = globals.updates[id]
                 game = globals.games[id]
                 if category is not game.type.category:
                     category = game.type.category
@@ -2170,7 +2170,7 @@ class MainGUI():
                 imgui.same_line()
                 self.draw_game_copy_link_button(game, f"{icons.content_copy} Link")
                 imgui.same_line()
-                self.draw_game_more_info_button(game, f"{icons.information_outline} Info", carousel_ids=globals.updated_games_sorted_ids)
+                self.draw_game_more_info_button(game, f"{icons.information_outline} Info", carousel_ids=globals.updates_sorted_ids)
 
                 imgui.end_group()
                 height = imgui.get_item_rect_size().y + imgui.style.item_spacing.y
@@ -2178,12 +2178,12 @@ class MainGUI():
                 imgui.set_cursor_pos((img_pos_x, img_pos_y))
                 game.image.render(width, height, *crop, rounding=self.scaled(globals.settings.style_corner_radius))
 
-                if game_i != len(globals.updated_games_sorted_ids) - 1:
+                if game_i != len(globals.updates_sorted_ids) - 1:
                     imgui.text("\n")
             imgui.unindent(indent)
             imgui.pop_text_wrap_pos()
         opened, closed = utils.popup(
-            f"{len(globals.updated_games_sorted_ids)} update{'' if len(globals.updated_games_sorted_ids) == 1 else 's'}",
+            f"{len(globals.updates_sorted_ids)} update{'' if len(globals.updates_sorted_ids) == 1 else 's'}",
             popup_content,
             buttons=True,
             closable=True,
@@ -2191,8 +2191,8 @@ class MainGUI():
             popup_uuid=popup_uuid
         )
         if closed:
-            globals.updated_games_sorted_ids.clear()
-            globals.updated_games.clear()
+            globals.updates_sorted_ids.clear()
+            globals.updates.clear()
         return opened, closed
 
     def draw_game_image_error(self, game: Game, image: imagehelper.ImageHelper, width: float, height: float):
@@ -5079,9 +5079,9 @@ class MainGUI():
                         outside=False
                     )
                 if imgui.button("F95 bookmarks", width=-offset):
-                    utils.start_refresh_task(api.import_f95_bookmarks(), reset_bg_timers=False, notify_new_games=False)
+                    utils.start_refresh_task(api.import_f95_bookmarks(), reset_bg_timers=False)
                 if imgui.button("F95 watched threads", width=-offset):
-                    utils.start_refresh_task(api.import_f95_watched_threads(), reset_bg_timers=False, notify_new_games=False)
+                    utils.start_refresh_task(api.import_f95_watched_threads(), reset_bg_timers=False)
                 if imgui.button("Browser bookmarks", width=-offset):
                     def callback(selected):
                         if selected:
