@@ -2195,6 +2195,69 @@ class MainGUI():
             globals.updates.clear()
         return opened, closed
 
+    def draw_api_errors_popup(self, popup_uuid: str = ""):
+        api_errors_count = sum(len(ids) for ids in globals.api_errors.values())
+        opened, closed = msgbox.msgbox(
+            f"API error{'' if api_errors_count == 1 else 's'}",
+            f"The F95Checker Cache API returned {'an error' if api_errors_count == 1 else 'some errors'}.\n"
+            "\n"
+            "The last data that the API had cached has been saved where possible.\n"
+            "This is just a warning that the Cache API has had issues caching\n"
+            "these threads, so the data you're seeing might be more out of date\n"
+            "than usual.\n"
+            "\n"
+            "This is typically due to F95zone downtime or elevated traffic and\n"
+            "usually resolves itself after a while.",
+            MsgBox.warn,
+            more="\n\n".join(
+                f"{api_error}:\n" + "\n".join(f"- {globals.games[id].name}" for id in ids if id in globals.games)
+                for api_error, ids in globals.api_errors.items()
+            ),
+            popup_uuid=popup_uuid
+        )
+        if closed:
+            globals.api_errors.clear()
+        return opened, closed
+
+    def draw_missing_threads_popup(self, popup_uuid: str = ""):
+        missing_threads_count = len(globals.missing_threads)
+        def _convert_games():
+            for id in globals.missing_threads:
+                if not (game := globals.games[id]):
+                    continue
+                callbacks.convert_f95zone_to_custom(game)
+        def _archive_games():
+            for id in globals.missing_threads:
+                if not (game := globals.games[id]):
+                    continue
+                game.archived = True
+                game.updated = False
+        buttons = {
+            f"{icons.cancel} Do nothing": None,
+            f"{icons.trash_can_outline} Remove": lambda: callbacks.remove_game(*(globals.games[id] for id in globals.missing_threads if id in globals.games)),
+            f"{icons.puzzle_outline} Convert": _convert_games,
+            f"{icons.archive_outline} Archive": _archive_games,
+        }
+        opened, closed = msgbox.msgbox(
+            f"Thread{'' if missing_threads_count == 1 else 's'} not found",
+            f"The F95zone thread{'' if missing_threads_count == 1 else 's'} for {'this game' if missing_threads_count == 1 else 'these games'} could not be found:\n"
+            + "\n".join(f"- {globals.games[id].name}" for id in globals.missing_threads if id in globals.games) + "\n"
+            "\n"
+            f"{'It' if missing_threads_count == 1 else 'They'} might have been privated, moved or deleted, maybe for breaking forum rules.\n"
+            "\n"
+            f"You can remove {'this game' if missing_threads_count == 1 else 'these games'} from your library, convert {'it' if missing_threads_count == 1 else 'them'} to custom, or archive {'it' if missing_threads_count == 1 else 'them'}.\n"
+            "Custom games are untied from F95zone and are not checked for updates, so you won't\n"
+            "get this error anymore. You can later convert them back to F95zone games from their info\n"
+            "popup. You can also find more details there.\n"
+            "Archiving will mute this error, but it will come back if you unarchive later on.",
+            MsgBox.warn,
+            buttons=buttons,
+            popup_uuid=popup_uuid
+        )
+        if closed:
+            globals.missing_threads.clear()
+        return opened, closed
+
     def draw_game_image_error(self, game: Game, image: imagehelper.ImageHelper, width: float, height: float):
         if image is game.image and image.error == "Image file missing":
             text = "Image missing!"
