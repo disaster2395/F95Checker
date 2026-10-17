@@ -59,6 +59,12 @@ from modules import (
     webview,
 )
 
+user_agent = (
+    f"F95Checker/{globals.version} "
+    f"Python/{sys.version.split(' ')[0]} "
+    f"aiohttp/{aiohttp.__version__}"
+)
+
 f95_domains = (
     f95_domain := "f95zone.to",
     f95_domain_com := "f95zone.com",
@@ -165,11 +171,7 @@ def make_session():
         connector=connector,
         cookie_jar=aiohttp.DummyCookieJar(loop=async_thread.loop),
         headers={
-            "User-Agent": (
-                f"F95Checker/{globals.version} "
-                f"Python/{sys.version.split(' ')[0]} "
-                f"aiohttp/{aiohttp.__version__}"
-            ),
+            "User-Agent": user_agent,
         },
     )
 
