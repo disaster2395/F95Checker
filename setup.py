@@ -154,6 +154,9 @@ cx_Freeze.setup(
         ),
     ],
     options={
+        "egg_info": {
+            "egg_base": str(egg_base_dir),
+        },
         "build_exe": {
             "includes": includes,
             "excludes": excludes,
@@ -187,5 +190,4 @@ cx_Freeze.setup(
         "browser": BrowserExtension,
         "extension": BrowserExtension,
     },
-    script_args=["egg_info", f"--egg-base={egg_base_dir}", "build"],
 )
