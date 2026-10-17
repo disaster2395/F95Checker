@@ -425,7 +425,7 @@ def open(url: str, *, cookies: dict[str, str] = {}, cookies_domain: str = None, 
     app.exec()
 
 
-def cookies(url: str, **kwargs):
+def cookies(url: str, title_search: str | None = None, *, cookies: dict[str, str] = {}, cookies_domain: str = None, **kwargs):
     kwargs |= dict(
         buttons=False,
         extension=False,
@@ -433,11 +433,20 @@ def cookies(url: str, **kwargs):
     )
     app = create(**kwargs)
     url = QtCore.QUrl(url)
+    if cookies and cookies_domain:
+        cookies_domain = QtCore.QUrl("https://" + cookies_domain)
+        for key, value in cookies.items():
+            app.window.webview.cookieStore.setCookie(QtNetwork.QNetworkCookie(QtCore.QByteArray(key.encode()), QtCore.QByteArray(value.encode())), cookies_domain)
     def on_cookie_add(cookie: QtNetwork.QNetworkCookie):
         name = cookie.name().data().decode('utf-8')
         value = cookie.value().data().decode('utf-8')
         app.pipe.put((name, value))
     app.window.webview.cookieStore.cookieAdded.connect(on_cookie_add)
+    if title_search:
+        def title_changed(title: str):
+            if title_search in title:
+                app.window.close()
+        app.window.webview.titleChanged.connect(title_changed)
     app.window.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
     app.window.webview.setUrl(url)
     app.window.show()
@@ -518,24 +527,6 @@ def xpath_redirect(url: str, xpath_expression: str = None, *, minimal=True, cook
                 }}
             """)
         app.window.webview.loadProgress.connect(load_progress)
-    app.window.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
-    app.window.webview.setUrl(url)
-    app.window.show()
-    app.exec()
-
-
-def solve_captcha(url: str, title_search: str, **kwargs):
-    kwargs |= dict(
-        buttons=False,
-        extension=False,
-        private=True,
-    )
-    app = create(**kwargs)
-    url = QtCore.QUrl(url)
-    def title_changed(title: str):
-        if title_search in title:
-            app.window.close()
-    app.window.webview.titleChanged.connect(title_changed)
     app.window.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
     app.window.webview.setUrl(url)
     app.window.show()
