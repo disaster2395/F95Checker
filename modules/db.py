@@ -193,6 +193,7 @@ async def connect():
         table_name="settings",
         columns={
             "_":                           f'INTEGER PRIMARY KEY CHECK (_=0)',
+            "app_beta_updates":            f'INTEGER DEFAULT {int(False)}',
             "background_on_close":         f'INTEGER DEFAULT {int(False)}',
             "bg_notifs_interval":          f'INTEGER DEFAULT 15',
             "bg_refresh_interval":         f'INTEGER DEFAULT 30',
@@ -219,6 +220,7 @@ async def connect():
             "ext_icon_glow":               f'INTEGER DEFAULT {int(True)}',
             "filter_all_tabs":             f'INTEGER DEFAULT {int(False)}',
             "fit_images":                  f'INTEGER DEFAULT {int(False)}',
+            "github_token":                f'TEXT    DEFAULT ""',
             "grid_columns":                f'INTEGER DEFAULT 3',
             "hidden_timeline_events":      f'TEXT    DEFAULT "[]"',
             "hide_empty_tabs":             f'INTEGER DEFAULT {int(False)}',
