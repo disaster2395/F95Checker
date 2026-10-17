@@ -287,16 +287,12 @@ def create(
         app.window.controls.buttons.reload.setText("󰅖")
         app.window.controls.progress.setValue(1)
         app.window.controls.progress.repaint()
-        if extension:
-            app.window.webview.page.runJavaScript(extension)
     def load_progress(value: int):
         app.window.controls.buttons.back.setEnabled(app.window.webview.history.canGoBack())
         app.window.controls.buttons.forward.setEnabled(app.window.webview.history.canGoForward())
         app.window.controls.buttons.reload.setText("󰅖")
         app.window.controls.progress.setValue(max(1, value))
         app.window.controls.progress.repaint()
-        if extension:
-            app.window.webview.page.runJavaScript(extension)
     def load_finished(_=None):
         nonlocal loading
         loading = False
@@ -306,7 +302,7 @@ def create(
         app.window.controls.progress.setValue(0)
         app.window.controls.progress.repaint()
         if extension:
-            app.window.webview.page.runJavaScript(extension + "\nupdateIcons();")
+            app.window.webview.page.runJavaScript(extension)
     app.window.webview.loadStarted.connect(load_started)
     app.window.webview.loadProgress.connect(load_progress)
     app.window.webview.loadFinished.connect(load_finished)
