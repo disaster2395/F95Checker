@@ -596,7 +596,7 @@ async def update_game_id(game: Game, new_id):
     game.refresh_image()
 
 
-async def update_game(game: Game, *keys: list[str]):
+async def update_game(game: Game, *keys: str):
     values = []
 
     for key in keys:
@@ -611,7 +611,7 @@ async def update_game(game: Game, *keys: list[str]):
     """, tuple(values))
 
 
-async def update_settings(*keys: list[str]):
+async def update_settings(*keys: str):
     values = []
 
     for key in keys:
@@ -653,7 +653,7 @@ async def create_game(thread: ThreadMatch | SearchResult = None, custom=False):
         return thread.id
 
 
-async def update_label(label: Label, *keys: list[str]):
+async def update_label(label: Label, *keys: str):
     values = []
 
     for key in keys:
@@ -711,7 +711,7 @@ async def create_label():
     return label
 
 
-async def update_tab(tab: Tab, *keys: list[str]):
+async def update_tab(tab: Tab, *keys: str):
     values = []
 
     for key in keys:
