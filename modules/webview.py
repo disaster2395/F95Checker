@@ -16,6 +16,8 @@ from PyQt6.QtNetwork import QNetworkProxy
 
 from common.structs import ChildPipe
 
+user_agent: str = None
+
 # Qt WebEngine doesn't like running alongside other OpenGL
 # applications so we need to run a dedicated multiprocess
 
