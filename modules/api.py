@@ -263,8 +263,6 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     if not headers:
         headers = {}
     retries = globals.settings.max_retries + 1
-    if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
-        req_opts["ssl"] = False
     if cookies is True or cookies is None:
         cookies = globals.cookies
     elif cookies is False:
@@ -291,6 +289,8 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         cookies=cookies,
         headers=headers,
     )
+    if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
+        req_opts["ssl"] = False
     while retries and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
