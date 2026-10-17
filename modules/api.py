@@ -101,13 +101,15 @@ f95_ratelimit_forum_errors = (
     b"<title>DDoS-Guard</title>",
     b"<title>DDOS-GUARD</title>",
 )
+f95_cloudflare_captcha_messages = (
+    b'(function(){window._cf_chl_opt = {',
+    b"<title>Just a moment...</title>",
+)
 f95_temp_error_messages = (
     b'<div id="cf-error-details" class="p-0">',
-    b'(function(){window._cf_chl_opt = {',
     b"<b>504 - Gateway Timeout .</b>",
     b"<title>502 Bad Gateway</title>",
     b"<title>Error 502</title>",
-    b"<title>Just a moment...</title>",
     b"An unexpected error occurred. Please try again later.",
     b"An unexpected database error occurred. Please try again later.\n<!--",
     b"<!-- Connection refused -->",
@@ -251,13 +253,10 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     timeout = kwargs.pop("timeout", None)
     if not timeout:
         timeout = globals.settings.request_timeout
+    headers = kwargs.pop("headers", None)
+    if not headers:
+        headers = {}
     retries = globals.settings.max_retries + 1
-    req_opts = dict(
-        timeout=timeout,
-        allow_redirects=True,
-        max_redirects=None,
-        ssl=ssl_context
-    )
     if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
         req_opts["ssl"] = False
     if cookies is True or cookies is None:
@@ -276,6 +275,16 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         with f95_ratelimit_sleeping:
             ratelimit_sleep += 5
             await asyncio.sleep(ratelimit_sleep)
+    if is_forum_request and webview.user_agent:
+        headers["User-Agent"] = webview.user_agent
+    req_opts = dict(
+        timeout=timeout,
+        allow_redirects=True,
+        max_redirects=None,
+        ssl=ssl_context,
+        cookies=cookies,
+        headers=headers,
+    )
     while retries and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
@@ -291,7 +300,6 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
             async with maybe_ratelimit, session.request(
                 method,
                 url,
-                cookies=cookies,
                 **req_opts,
                 **kwargs
             ) as req:
@@ -352,6 +360,23 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 "F95zone servers are ratelimiting you,\n"
                 "please try again later.",
                 MsgBox.warn
+            )
+        if any(msg in res for msg in f95_cloudflare_captcha_messages):
+            raise msgbox.Exc(
+                "Cloudflare captcha",
+                "F95Checker hit a Cloudflare captcha while connecting to F95zone.\n"
+                "\n"
+                "Click below to solve it in the integrated browser, then retry manually.",
+                MsgBox.warn,
+                buttons={
+                    f"{icons.cancel} Cancel": None,
+                    f"{icons.account_check_outline} Solve captcha": lambda: async_thread.run(webview.start(
+                        "solve_captcha", f95_host, "F95zone",
+                        title="F95Checker: Solve Cloudflare Captcha",
+                        size=(500, 720),
+                        use_f95_cookies=False,
+                    )),
+                }
             )
         if any(msg in res for msg in f95_temp_error_messages) or not res:
             raise msgbox.Exc(

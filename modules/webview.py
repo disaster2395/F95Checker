@@ -404,14 +404,13 @@ def open(url: str, *, cookies: dict[str, str] = {}, cookies_domain: str = None, 
     app.exec()
 
 
-def cookies(url: str, *, minimal=True, **kwargs):
-    if minimal:
-        kwargs |= dict(
-            buttons=False,
-            extension=False,
-            private=True,
-        )
-    app = create(**kwargs | dict(buttons=False, extension=False, private=True))
+def cookies(url: str, **kwargs):
+    kwargs |= dict(
+        buttons=False,
+        extension=False,
+        private=True,
+    )
+    app = create(**kwargs)
     url = QtCore.QUrl(url)
     def on_cookie_add(cookie: QtNetwork.QNetworkCookie):
         name = cookie.name().data().decode('utf-8')
@@ -498,6 +497,24 @@ def xpath_redirect(url: str, xpath_expression: str = None, *, minimal=True, cook
                 }}
             """)
         app.window.webview.loadProgress.connect(load_progress)
+    app.window.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
+    app.window.webview.setUrl(url)
+    app.window.show()
+    app.exec()
+
+
+def solve_captcha(url: str, title_search: str, **kwargs):
+    kwargs |= dict(
+        buttons=False,
+        extension=False,
+        private=True,
+    )
+    app = create(**kwargs)
+    url = QtCore.QUrl(url)
+    def title_changed(title: str):
+        if title_search in title:
+            app.window.close()
+    app.window.webview.titleChanged.connect(title_changed)
     app.window.setWindowFlag(QtCore.Qt.WindowType.WindowStaysOnTopHint, True)
     app.window.webview.setUrl(url)
     app.window.show()
