@@ -86,8 +86,8 @@ f95_attachments_hosts = (
     f"https://attachments.{f95_domain_com}/",
     f95_attachments_host_ninja := f"https://attachments.{f95_domain_ninja}/",
 )
-f95_no_ratelimit_urls = (
-    f95_check_login_fast,
+f95_not_forum_url_prefixes = (
+    f95_host + "/sam/",
 )
 f95_login_error_messages = (
     b'<a href="/login/" data-xf-click="overlay">Log in or register now.</a>',
@@ -264,7 +264,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         cookies = globals.cookies
     elif cookies is False:
         cookies = {}
-    is_forum_request = url.startswith(f95_host) and not url.startswith(f95_no_ratelimit_urls)
+    is_forum_request = url.startswith(f95_host) and not url.startswith(f95_not_forum_url_prefixes)
     is_attachments_request = url.startswith(f95_attachments_hosts)
     if_ratelimit_request = is_forum_request or is_attachments_request
     ratelimit_retries = 10
