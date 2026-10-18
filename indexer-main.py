@@ -41,7 +41,7 @@ def main() -> None:
     uvicorn.run(
         "indexer-main:app",
         host=os.environ.get("BIND_HOST", "127.0.0.1"),
-        port=int(os.environ.get("BIND_HOST", 8069)),
+        port=int(os.environ.get("BIND_PORT", 8069)),
         workers=1,
         log_config=None,
         log_level=logging.INFO,

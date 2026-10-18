@@ -36,6 +36,7 @@ pywin32==312 ; sys_platform == "win32"
 bencode2==0.3.33
 pillow==12.3.0
 zstd==1.5.7.2
+python-dateutil==2.9.0.post0
 
 # Proxy support
 python-socks[asyncio]==3.0.0

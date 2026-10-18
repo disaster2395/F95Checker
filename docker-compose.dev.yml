@@ -1,0 +1,67 @@
+services:
+  indexer:
+    build: .
+    restart: unless-stopped
+    environment:
+      BIND_HOST: 0.0.0.0
+      BIND_PORT: "8069"
+      COOKIE_XF_USER: "${COOKIE_XF_USER:-}"
+      F95_USERNAME: "${F95_USERNAME:-}"
+      F95_PASSWORD: "${F95_PASSWORD:-}"
+      F95_TOTP_SECRET: "${F95_TOTP_SECRET:-}"
+      F95_PROXY: "${F95_PROXY:-}"
+      F95_USER_AGENT: "${F95_USER_AGENT:-}"
+      F95_FLARESOLVERR_URL: "${F95_FLARESOLVERR_URL:-}"
+      F95_FLARESOLVERR_TIMEOUT: "${F95_FLARESOLVERR_TIMEOUT:-60}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    ports:
+      - "${BIND_PORT:-8069}:8069"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/fast?ids=', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
+    profiles: ["flaresolverr"]
+    restart: unless-stopped
+    environment:
+      HEADLESS: "false"
+      BROWSER_WAIT_TIMEOUT: "5"
+      LOG_LEVEL: warning
+      LOG_HTML: "false"
+    command:
+      - xvfb-run
+      - -a
+      - -s
+      - -screen 0 1920x1080x24
+      - /usr/local/bin/python
+      - -u
+      - /app/flaresolverr.py
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  redis-data:

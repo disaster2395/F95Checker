@@ -1,0 +1,37 @@
+build::indexer:
+  stage: build
+  image: registry.nexus.blackopdev.com/docker:29.0.2-cli
+  tags:
+    - docker
+  interruptible: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "customized"'
+  services:
+    - name: registry.nexus.blackopdev.com/docker:29.0.2-dind
+      alias: docker
+      command:
+        - /bin/sh
+        - -c
+        - |
+          exec dockerd-entrypoint.sh \
+            --dns=127.0.0.11 \
+            --dns="${DIND_DNS_EFFECTIVE}"
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DIND_DNS: "1.0.0.1"
+    DIND_DNS_EFFECTIVE: "$DIND_DNS"
+  before_script:
+    - docker info
+    - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker buildx create --use
+  script:
+    - IMAGE_TAG="$(date -u +%Y%m%d)-${CI_COMMIT_SHORT_SHA}"
+    - >-
+      docker buildx build
+      --platform linux/amd64,linux/arm64
+      --push
+      --tag "${CI_REGISTRY_IMAGE}:${IMAGE_TAG}"
+      --tag "${CI_REGISTRY_IMAGE}:latest"
+      --file Dockerfile
+      .

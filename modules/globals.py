@@ -5,6 +5,7 @@ import re
 import shlex
 import shutil
 import sys
+from logging import Logger
 
 from common.structs import (
     Browser,
@@ -25,9 +26,17 @@ rpc_url = None
 frozen = None
 self_path = None
 debug = None
+logger: Logger | None = None
 def _():
     global version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
     from common.meta import version, release, build_number, version_name, rpc_port, rpc_url, frozen, self_path, debug
+
+    if debug:
+        global logger
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger("f95checker")
+        logger.setLevel(logging.DEBUG)
 _()
 
 # Done here to avoid circular import

@@ -20,6 +20,7 @@ from PyQt6 import (
     QtGui,
     QtWidgets,
 )
+from dateutil.relativedelta import relativedelta
 import aiohttp
 import glfw
 import imgui
@@ -1440,6 +1441,31 @@ class MainGUI():
         if imgui.is_item_clicked(imgui.MOUSE_BUTTON_MIDDLE):
             callbacks.clipboard_copy(game.name)
 
+    def draw_game_updated_text(self, game: Game):
+        def __draw_colored(text, r, g, b):
+            imgui.same_line(0, 0)
+            imgui.text(" (")
+            imgui.same_line(0, 0)
+            imgui.text_colored(game.last_updated.now_delta, r, g, b, 1)
+            imgui.same_line(0, 0)
+            imgui.text(")".ljust(12 - len(game.last_updated.now_delta)))
+
+        if game.last_updated.display:
+            imgui.text(game.last_updated.display)
+
+            diff = relativedelta(dt.datetime.today(), dt.datetime.fromtimestamp(game.last_updated.value))
+
+            if diff.years < 1 and diff.months < 1:
+                __draw_colored(game.last_updated.now_delta, 1, 1, 1)
+            elif diff.years < 1 and diff.months < 6:
+                __draw_colored(game.last_updated.now_delta, 0, 1, 0)
+            elif diff.years < 1:
+                __draw_colored(game.last_updated.now_delta, 1, 1, 0)
+            else:
+                __draw_colored(game.last_updated.now_delta, 1, 0, 0)
+        else:
+            imgui.text("Unknown")
+
     def draw_game_finished_checkbox(self, game: Game, label=""):
         if game:
             installed_finished = game.finished == (game.installed or game.version)
@@ -1521,6 +1547,19 @@ class MainGUI():
                         game.installed = ""
             imgui.same_line()
             imgui.text(label + " ")
+
+    def draw_game_updated_checkbox(self, label=""):
+        if imgui.small_button(icons.check):
+            for game in globals.games.values():
+                if game.selected:
+                    game.updated = True
+        imgui.same_line()
+        if imgui.small_button(icons.close):
+            for game in globals.games.values():
+                if game.selected:
+                    game.updated = False
+        imgui.same_line()
+        imgui.text(label + " ")
 
     def draw_game_rating_widget(self, game: Game):
         if not game:
@@ -1813,6 +1852,8 @@ class MainGUI():
         imgui.separator()
         self.draw_game_finished_checkbox(game, f"{icons.flag_checkered} Finished")
         self.draw_game_installed_checkbox(game, f"{icons.download} Installed")
+        if not game:
+            self.draw_game_updated_checkbox(f"{icons.star_circle} Updated")
         imgui.separator()
         self.draw_game_rating_widget(game)
         if imgui.begin_menu(f"{icons.label_multiple_outline} Labels"):
@@ -2575,7 +2616,7 @@ class MainGUI():
                 imgui.table_next_column()
                 imgui.text_disabled("Last Updated:")
                 imgui.same_line()
-                imgui.text(game.last_updated.display or "Unknown")
+                self.draw_game_updated_text(game)
 
                 imgui.table_next_row()
 
@@ -3267,6 +3308,22 @@ class MainGUI():
                 )[0]:
                     new_tab = None
                     imgui.end_tab_item()
+
+                    # Pop-up for default tab
+                    if not utils.is_refreshing() and imgui.begin_popup_context_item("###tab_default_context"):
+                        imgui.align_text_to_frame_padding()
+                        imgui.text(f" {icons.reload_alert}")
+                        imgui.same_line()
+                        if imgui.button(f"Full refresh", width=150.0):
+                            utils.start_refresh_task(api.refresh(
+                                *[game for game in globals.games.values() if game.tab is None],
+                                full=True,
+                                force_archived=True,
+                                force_completed=True,
+                            ))
+                            imgui.close_current_popup()
+                        imgui.end_popup()
+
                 swap = None
                 for tab_i, tab in enumerate(Tab.instances):
                     count = len(self.show_games_ids.get(tab, ()))
@@ -3361,6 +3418,22 @@ class MainGUI():
                                 )
                             else:
                                 close_callback()
+                        dnu_changed, dnu_value = imgui.checkbox("Exclude from FR", tab.do_not_update)
+                        if dnu_changed:
+                            tab.do_not_update = dnu_value
+                            async_thread.run(db.update_tab(tab, "do_not_update"))
+                        imgui.align_text_to_frame_padding()
+                        if not utils.is_refreshing():
+                            imgui.text(f" {icons.reload_alert}")
+                            imgui.same_line()
+                            if imgui.button(f"Full refresh", width=imgui.get_content_region_available_width()):
+                                utils.start_refresh_task(api.refresh(
+                                    *[game for game in globals.games.values() if game.tab == tab],
+                                    full=True,
+                                    force_archived=True,
+                                    force_completed=True,
+                                ))
+                                imgui.close_current_popup()
                         imgui.end_popup()
                 imgui.end_tab_bar()
                 if swap:
@@ -3702,7 +3775,7 @@ class MainGUI():
                             imgui.pop_font()
                         case cols.last_updated.index:
                             imgui.push_font(imgui.fonts.mono)
-                            imgui.text(game.last_updated.display or "Unknown")
+                            self.draw_game_updated_text(game)
                             imgui.pop_font()
                         case cols.last_launched.index:
                             imgui.push_font(imgui.fonts.mono)
@@ -3826,7 +3899,7 @@ class MainGUI():
             ),
             (  # Clustered data
                 imgui.style.item_spacing.x +  # Between text
-                imgui.calc_text_size(f"{cols.last_updated.name[0]}00/00/0000").x  # Text
+                imgui.calc_text_size(f"{cols.last_updated.name[0]}00/00/0000 (00y 00m 00d)").x  # Text
             )
         )
 
@@ -3988,7 +4061,7 @@ class MainGUI():
         if cols.playtime.enabled and game.playtime_display:
             _cluster_text(cols.playtime.name, game.playtime_display)
         if cols.last_updated.enabled:
-            _cluster_text(cols.last_updated.name, game.last_updated.display or "Unknown")
+            self.draw_game_updated_text(game)
         if cols.last_launched.enabled:
             _cluster_text(cols.last_launched.name, game.last_launched.display or "Never")
         if cols.added_on.enabled:
@@ -4360,6 +4433,8 @@ class MainGUI():
                     if not globals.settings.refresh_completed_games and not globals.settings.refresh_archived_games:
                         if imgui.selectable(f"{icons.reload_alert} Full Refresh (incl. everything)", False)[0]:
                             utils.start_refresh_task(api.refresh(full=True, force_archived=True, force_completed=True))
+                    if imgui.selectable(f"{icons.reload_alert} Full Refresh (EVERYTHING)", False)[0]:
+                        utils.start_refresh_task(api.refresh(full=True, force_archived=True, force_completed=True, force_all=True))
                 imgui.separator()
                 if imgui.selectable(f"{icons.monitor_arrow_down_variant} Check for app updates", False)[0]:
                     utils.start_update_check()
@@ -5620,10 +5695,31 @@ class MainGUI():
             if set.proxy_type is ProxyType.Disabled:
                 imgui.pop_disabled()
 
+            draw_settings_label(
+                "Bypass hosts:",
+                "Hosts that bypass the proxy for F95Checker HTTP requests, including the Cache API and downloads.\n"
+                "Separate hostnames or IP addresses with commas. Wildcards are supported, e.g. *.example.com.\n"
+                "Default: localhost, 127.0.0.1, ::1. Changes apply without restarting."
+            )
+            changed, value = imgui.input_text("###proxy_bypass", set.proxy_bypass)
+            if changed:
+                set.proxy_bypass = value
+                async_thread.run(db.update_settings("proxy_bypass"))
+
             imgui.end_table()
             imgui.spacing()
 
         if draw_settings_section("Refresh"):
+            draw_settings_label(
+                "API URL:",
+                "Base URL of the F95Checker Cache API. Default: https://api.f95checker.dev\n"
+                "Changes apply to subsequent requests without restarting F95Checker."
+            )
+            changed, value = imgui.input_text("###api_url", set.api_url)
+            if changed:
+                set.api_url = value
+                async_thread.run(db.update_settings("api_url"))
+
             draw_settings_label("Check alerts and inbox:")
             draw_settings_checkbox("check_notifs")
 
@@ -5638,6 +5734,9 @@ class MainGUI():
 
             draw_settings_label("Refresh if completed:")
             draw_settings_checkbox("refresh_completed_games")
+
+            draw_settings_label("Mark updated if archived:")
+            draw_settings_checkbox("mark_updated_archived_games")
 
             draw_settings_label(
                 "Connections:",
@@ -5808,6 +5907,9 @@ class MainGUI():
                 "Can be useful if you only store new games in default tab."
             )
             draw_settings_checkbox("default_tab_is_new")
+
+            draw_settings_label("DNR Default", "Exclude Default tab from full update by default, requires manual update or \"Full Refresh (EVERYTHING)\"")
+            draw_settings_checkbox("default_excluded_from_fu")
 
             draw_settings_label(
                 "Independent views:",

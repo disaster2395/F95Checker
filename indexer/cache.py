@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import datetime as dt
 import logging
+import os
 import time
 
 import redis.asyncio as aredis
@@ -58,7 +59,13 @@ NAME_FORMAT = "thread:{id}"
 @contextlib.asynccontextmanager
 async def lifespan():
     global redis
-    redis = aredis.Redis(decode_responses=True)
+    redis = aredis.Redis(
+        host=os.environ.get("REDIS_HOST", "localhost"),
+        port=int(os.environ.get("REDIS_PORT", "6379")),
+        username=os.environ.get("REDIS_USERNAME") or None,
+        password=os.environ.get("REDIS_PASSWORD") or None,
+        decode_responses=True,
+    )
 
     retries = 7
     while retries:

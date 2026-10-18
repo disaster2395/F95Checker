@@ -193,6 +193,7 @@ async def connect():
         table_name="settings",
         columns={
             "_":                           f'INTEGER PRIMARY KEY CHECK (_=0)',
+            "api_url":                     f'TEXT    DEFAULT "https://api.f95checker.dev"',
             "app_beta_updates":            f'INTEGER DEFAULT {int(False)}',
             "background_on_close":         f'INTEGER DEFAULT {int(False)}',
             "bg_notifs_interval":          f'INTEGER DEFAULT 15',
@@ -211,6 +212,7 @@ async def connect():
             "default_exe_dir":             f'TEXT    DEFAULT "{{}}"',
             "default_launch_wrapper":      f'TEXT    DEFAULT "{{}}"',
             "default_tab_is_new":          f'INTEGER DEFAULT {int(False)}',
+            "default_excluded_from_fu":    f'INTEGER DEFAULT {int(False)}',
             "display_mode":                f'INTEGER DEFAULT {DisplayMode.list}',
             "display_tab":                 f'INTEGER DEFAULT NULL',
             "downloads_dir":               f'TEXT    DEFAULT "{{}}"',
@@ -235,6 +237,7 @@ async def connect():
             "last_successful_refresh":     f'INTEGER DEFAULT 0',
             "manual_sort_list":            f'TEXT    DEFAULT "[]"',
             "mark_installed_after_add":    f'INTEGER DEFAULT {int(False)}',
+            "mark_updated_archived_games": f'INTEGER DEFAULT {int(False)}',
             "max_connections":             f'INTEGER DEFAULT 10',
             "max_retries":                 f'INTEGER DEFAULT 2',
             "notifs_show_update_banner":   f'INTEGER DEFAULT {int(True)}',
@@ -247,6 +250,7 @@ async def connect():
             "proxy_port":                  f'INTEGER DEFAULT 8080',
             "proxy_username":              f'TEXT    DEFAULT ""',
             "proxy_password":              f'TEXT    DEFAULT ""',
+            "proxy_bypass":                f'TEXT    DEFAULT "localhost, 127.0.0.1, ::1"',
             "quick_filters":               f'INTEGER DEFAULT {int(True)}',
             "refresh_archived_games":      f'INTEGER DEFAULT {int(True)}',
             "refresh_completed_games":     f'INTEGER DEFAULT {int(True)}',
@@ -374,6 +378,7 @@ async def connect():
             "icon":                        f'TEXT    DEFAULT "{Tab.base_icon()}"',
             "color":                       f'TEXT    DEFAULT NULL',
             "position":                    f'INTEGER DEFAULT 0',
+            "do_not_update":               f'INTEGER DEFAULT 0'
         }
     )
     await create_table(

@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import contextlib
+import fnmatch
 import hashlib
 import http.cookies
 import io
@@ -18,6 +19,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from urllib.parse import urlsplit
 
 import aiofiles
 import aiohttp
@@ -121,9 +123,8 @@ f95_temp_error_messages = (
     b'<div class="blockMessage"><p>Please check back in 10 mins</p></div>',
 )
 
-api_host = os.environ.get("F95INDEXER_URL") or "https://api.f95checker.dev"
-api_fast_check_url = api_host + "/fast?ids={ids}"
-api_full_check_url = api_host + "/full/{id}?ts={ts}"
+api_fast_check_url = "/fast?ids={ids}"
+api_full_check_url = "/full/{id}?ts={ts}"
 api_fast_check_max_ids = 10
 
 app_update_endpoint = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
@@ -140,6 +141,7 @@ insecure_ssl_allowed_hosts = (
 
 updating = False
 session: aiohttp.ClientSession = None
+direct_session: aiohttp.ClientSession | None = None
 ssl_context: ssl.SSLContext = None
 temp_prefix = "F95Checker-Temp-"
 f95_ratelimit_forum = aiolimiter.AsyncLimiter(max_rate=1, time_period=2)
@@ -154,8 +156,9 @@ downloads: dict[str, FileDownload] = {}
 
 
 def make_session():
-    global session
+    global session, direct_session
     old_session = session
+    old_direct_session = direct_session
 
     # Setup new HTTP session and proxy
     if globals.settings.proxy_type is ProxyType.Disabled:
@@ -182,9 +185,16 @@ def make_session():
             "User-Agent": user_agent,
         },
     )
+    direct_session = aiohttp.ClientSession(
+        loop=async_thread.loop,
+        cookie_jar=aiohttp.DummyCookieJar(loop=async_thread.loop),
+        headers={"User-Agent": user_agent},
+    ) if connector is not None else None
 
     if old_session:
         async_thread.wait(old_session.close())
+    if old_direct_session is not None:
+        async_thread.wait(old_direct_session.close())
 
 
 @contextlib.contextmanager
@@ -231,6 +241,8 @@ def setup():
     finally:
 
         async_thread.wait(session.close())
+        if direct_session is not None:
+            async_thread.wait(direct_session.close())
         cleanup_temp_files()
 
 
@@ -256,6 +268,14 @@ def cookiedict(cookies: http.cookies.SimpleCookie):
 
 @contextlib.asynccontextmanager
 async def request(method: str, url: str, read=True, cookies: dict = True, **kwargs):
+    request_session = session
+    if direct_session is not None:
+        host = (urlsplit(url).hostname or "").casefold()
+        if any(
+            fnmatch.fnmatchcase(host, pattern.casefold())
+            for pattern in globals.settings.proxy_bypass.replace(",", " ").split()
+        ):
+            request_session = direct_session
     timeout = kwargs.pop("timeout", None)
     if not timeout:
         timeout = globals.settings.request_timeout
@@ -303,7 +323,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
             if not if_ratelimit_request and url.startswith(f95_host):
                 # Don't ratelimit before request, but allow detecting and retrying if ratelimit happens
                 if_ratelimit_request = True
-            async with maybe_ratelimit, session.request(
+            async with maybe_ratelimit, request_session.request(
                 method,
                 url,
                 **req_opts,
@@ -872,7 +892,7 @@ async def fast_check(games: list[Game], full: bool, updates: dict[int, OldGame],
         async with fast_checks_sem:
             res = None
             try:
-                res = await fetch("GET", api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=120, cookies=False)
+                res = await fetch("GET", globals.settings.api_url.rstrip("/") + api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=120, cookies=False)
                 raise_api_error(res)
                 last_changes = json.loads(res)
                 raise_api_error(last_changes)
@@ -930,7 +950,7 @@ async def fast_check(games: list[Game], full: bool, updates: dict[int, OldGame],
 async def full_check(game: Game, last_changed: int, updates: dict[int, OldGame], api_errors: dict[int, str], missing_threads: list[int]):
     async with full_checks_counter, full_checks_sem:
 
-        async with request("GET", api_full_check_url.format(id=game.id, ts=last_changed), timeout=globals.settings.request_timeout * 2, cookies=False) as (res, req):
+        async with request("GET", globals.settings.api_url.rstrip("/") + api_full_check_url.format(id=game.id, ts=last_changed), timeout=globals.settings.request_timeout * 2, cookies=False) as (res, req):
             raise_api_error(res)
             thread = json.loads(res)
             raise_api_error(thread)
@@ -1016,7 +1036,7 @@ async def full_check(game: Game, last_changed: int, updates: dict[int, OldGame],
                 old_version = version  # Don't include version change in popup for simple parsing adjustments
             else:
                 if version != old_version:
-                    if not game.archived:
+                    if not game.archived or globals.settings.mark_updated_archived_games:
                         updated = True
 
             # Don't include name change in popup for simple parsing adjustments
@@ -1514,12 +1534,14 @@ try {{
         )
 
 
-async def refresh(*games: Game, full=False, notifs=True, force_archived=False, force_completed=False):
+async def refresh(*games: Game, full=False, notifs=True, force_archived=False, force_completed=False, force_all=False):
     fast_queue: list[list[Game]] = [[]]
-    for game in (games or globals.games.values()):
+    for game in (games or sorted(globals.games.values(), key=lambda g: g.tab.position if g.tab else -1)):
         if game.custom:
             continue
-        if not games:
+        if not games and game.last_full_check:
+            if (not game.tab and globals.settings.default_excluded_from_fu or game.tab and game.tab.do_not_update) and not force_all:
+                continue
             if game.archived and not globals.settings.refresh_archived_games and not force_archived:
                 continue
             if not game.image.missing:

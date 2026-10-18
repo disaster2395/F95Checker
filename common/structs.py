@@ -13,6 +13,8 @@ import time
 import typing
 import weakref
 
+from dateutil.relativedelta import relativedelta
+
 from external import weakerset
 from modules import colors
 
@@ -232,6 +234,41 @@ class Datestamp(Timestamp):
     def format(self):
         from modules import globals
         return globals.settings.datestamp_format
+
+
+class DatestampWithDelta(Datestamp):
+    instances = weakerset.WeakerSet()
+
+    __slots__ = ("_delta", "_now_day")
+
+    def __init__(self, unix_time: int | float):
+        self.update(unix_time)
+        type(self).instances.add(self)
+
+    def update(self, unix_time: int | float = None):
+        super().update(unix_time)
+        self._delta = None
+        self._now_day = None
+
+    @property
+    def now_delta(self):
+        now_day = dt.datetime.today().day
+        if self._delta is None or now_day != self._now_day:
+            self._now_day = now_day
+            if self.value == 0:
+                self._delta = ""
+            else:
+                r_delta = relativedelta(dt.datetime.now(), dt.datetime.fromtimestamp(self.value))
+                self._delta = " ".join(
+                    filter(
+                        lambda x: x is not None, [
+                            f"{r_delta.years}y" if r_delta.years else None,
+                            f"{r_delta.months}m" if r_delta.months else None,
+                            f"{r_delta.days}d" if r_delta.days else None,
+                        ]
+                    )
+                )
+        return self._delta or "0d"
 
 
 class DefaultStyle:
@@ -720,6 +757,7 @@ class Tab:
     icon: str
     color: tuple[float] | None
     position: int
+    do_not_update: int
     instances: typing.ClassVar = []
 
     @classmethod
@@ -867,6 +905,7 @@ Type = IntEnumHack("Type", [
 
 @dataclasses.dataclass(slots=True)
 class Settings:
+    api_url                     : str
     app_beta_updates            : bool
     background_on_close         : bool
     bg_notifs_interval          : int
@@ -885,6 +924,7 @@ class Settings:
     default_exe_dir             : dict[Os, str]
     default_launch_wrapper      : dict[Os, dict[Type, str]]
     default_tab_is_new          : bool
+    default_excluded_from_fu    : bool
     display_mode                : DisplayMode
     display_tab                 : Tab.get
     downloads_dir               : dict[Os, str]
@@ -909,6 +949,7 @@ class Settings:
     last_successful_refresh     : Timestamp
     manual_sort_list            : list[int]
     mark_installed_after_add    : bool
+    mark_updated_archived_games : bool
     max_connections             : int
     max_retries                 : int
     notifs_show_update_banner   : bool
@@ -921,6 +962,7 @@ class Settings:
     proxy_port                  : int
     proxy_username              : str
     proxy_password              : str
+    proxy_bypass                : str
     quick_filters               : bool
     refresh_archived_games      : bool
     refresh_completed_games     : bool
@@ -976,7 +1018,7 @@ class Game:
     status             : Status
     url                : str
     added_on           : Datestamp
-    last_updated       : Datestamp
+    last_updated       : DatestampWithDelta
     last_full_check    : int
     last_check_version : str
     last_launched      : Datestamp

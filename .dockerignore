@@ -1,0 +1,13 @@
+**
+!Dockerfile
+!requirements-indexer.txt
+!indexer-main.py
+!indexer/
+!indexer/*.py
+!common/
+!common/*.py
+!external/
+!external/error.py
+!external/weakerset.py
+!modules/
+!modules/colors.py

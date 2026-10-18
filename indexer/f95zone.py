@@ -3,17 +3,13 @@ import contextlib
 import dataclasses
 import datetime as dt
 import logging
-import os
 import re
-import sys
 
 import aiohttp
 import aiolimiter
 
-from common import (
-    meta,
-    parser,
-)
+from common import parser
+from indexer import client
 
 RATELIMIT = aiolimiter.AsyncLimiter(max_rate=1, time_period=0.5)
 TIMEOUT = aiohttp.ClientTimeout(total=30, connect=30, sock_read=30, sock_connect=30)
@@ -21,6 +17,7 @@ LOGIN_ERROR_MESSAGES = (
     b'<a href="/login/" data-xf-click="overlay">Log in or register now.</a>',
     b"<title>Log in | F95zone</title>",
     b'<form action="/login/login" method="post" class="block"',
+    b'action="/login/two-step"',
 )
 RATELIMIT_FORUM_ERRORS = (
     b"<title>429 Too Many Requests</title>",
@@ -57,8 +54,8 @@ THREAD_MISSING_MESSAGES = (
 )
 
 logger = logging.getLogger(__name__)
-session: aiohttp.ClientSession = None
-cookies: dict = None
+session: client.Client = None
+cookies: dict[str, str] | None = None
 
 HOST = "https://f95zone.to"
 THREAD_URL = f"{HOST}/threads/{{thread}}"
@@ -114,31 +111,33 @@ ERROR_INTERNAL_ERROR = IndexerError(
 @contextlib.asynccontextmanager
 async def lifespan():
     global session, cookies
-    session = aiohttp.ClientSession(
-        cookie_jar=aiohttp.DummyCookieJar(),
+    async with client.lifespan(
+        HOST,
         timeout=TIMEOUT,
-        headers={
-            "User-Agent": (
-                f"F95Indexer/{meta.version} "
-                f"Python/{sys.version.split(' ')[0]} "
-                f"aiohttp/{aiohttp.__version__}"
-            ),
-        },
-    )
-    cookies = {
-        "xf_user": os.environ.get("COOKIE_XF_USER"),
-    }
-
-    try:
-        yield
-    finally:
-        await session.close()
-        session = None
+        needs_login=lambda res: (
+            any(message in res for message in LOGIN_ERROR_MESSAGES)
+            and check_error(res, logger) is ERROR_SESSION_LOGGED_OUT
+        ),
+    ) as active:
+        session = active
+        cookies = active.cookies
+        try:
+            yield
+        finally:
+            session = None
+            cookies = None
 
 
 def check_error(
     res: bytes | dict | Exception, logger: logging.Logger
 ) -> IndexerError | None:
+    if isinstance(res, client.RequestError):
+        logger.warning("%s", res)
+        return ERROR_CLOUDFLARE_CAPTCHA if res.cloudflare else ERROR_F95ZONE_UNAVAILABLE
+    if isinstance(res, client.LoginError):
+        logger.error(f"F95zone authentication failed: {res}")
+        return ERROR_SESSION_LOGGED_OUT
+
     if isinstance(res, bytes):
         if b'<body data-template="error">' in res:
             try:
@@ -173,7 +172,6 @@ def check_error(
 
         if any((msg in res) for msg in LOGIN_ERROR_MESSAGES):
             logger.error("Logged out of F95zone")
-            # TODO: maybe auto login, but xf_user cookie should be enough for a long time
             return ERROR_SESSION_LOGGED_OUT
 
     elif isinstance(res, dict):
