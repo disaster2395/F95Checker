@@ -313,8 +313,12 @@ def push_popup(*args, bottom=False, **kwargs):
         if (globals.gui.hidden or not globals.gui.focused) and (len(args) > 3) and (args[0] is msgbox.msgbox) and (args[3] in (MsgBox.warn, MsgBox.error)):
             # Ignore some temporary errors in background mode, taken from modules/api.py
             if globals.gui.hidden and args[1] in (
-                "Rate limit",
+                "Cloudflare captcha",
                 "Server downtime",
+                "F95zone forum error",
+                "F95zone API error",
+                "Rate limit",
+                "Login expired",
             ):
                 return
             notify = True

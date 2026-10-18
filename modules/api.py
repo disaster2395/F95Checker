@@ -374,7 +374,7 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                 message = None
             if message:
                 raise msgbox.Exc(
-                    "Forum error",
+                    "F95zone forum error",
                     "The F95zone Forum returned a temporary error with the following message:\n"
                     f"{message}",
                     MsgBox.error
@@ -427,7 +427,7 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
             more = json.dumps(res, indent=4)
             if msg := res.get("msg"):
                 raise msgbox.Exc(
-                    "API error",
+                    "F95zone API error",
                     "The F95zone API returned an 'error' status with the following message:\n"
                     f"{msg}",
                     MsgBox.error,
@@ -444,14 +444,14 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
                         MsgBox.warn
                     )
                 raise msgbox.Exc(
-                    "API error",
+                    "F95zone API error",
                     "The F95zone API returned an 'error' status with the following messages:\n"
                     " - " + "\n - ".join(errors),
                     MsgBox.error,
                     more=more
                 )
             raise msgbox.Exc(
-                "API error",
+                "F95zone API error",
                 "The F95zone API returned an 'error' status.",
                 MsgBox.error,
                 more=more
