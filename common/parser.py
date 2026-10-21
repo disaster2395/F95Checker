@@ -220,7 +220,7 @@ def thread(res: bytes) -> ParsedThread | ParserError:
 
         name = ""
         for elem in html.find(is_class("p-title-value")).children:
-            if not is_class("labelLink")(elem) and not is_class("label-append")(elem):
+            if not is_class("p-title-prefix")(elem) and not is_class("labelLink")(elem) and not is_class("label-append")(elem):
                 name += elem.text
         name = fixed_spaces(sanitize_whitespace(re.search(r"^\s*(.*?)(?:\s*\[.*?\]\s*)*$", name, re.DOTALL).group(1)).replace("\n", " "))
 
