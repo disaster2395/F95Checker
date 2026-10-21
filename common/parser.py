@@ -337,7 +337,7 @@ def thread(res: bytes) -> ParsedThread | ParserError:
         if not last_updated:
             try:
                 if elem := post.find(is_class("message-lastEdit")):
-                    last_updated = int(elem.find("time").get("data-time"))
+                    last_updated = int(elem.find("time").get("data-timestamp"))
                 else:
                     last_updated = int(post.find(is_class("message-attribution-main")).find("time").get("data-timestamp"))
             except Exception:
@@ -361,8 +361,6 @@ def thread(res: bytes) -> ParsedThread | ParserError:
             score = 0.0
             if elem := head.find("select", attrs={"name": "rating"}):
                 score = float(elem.get("data-initial-rating"))
-            elif elem := head.find(is_class("bratr-rating")):
-                score = float(re.search(r"(\d(?:\.\d\d?)?)", elem.get("title")).group(1))
 
         if votes is None:
             votes = 0
@@ -399,7 +397,7 @@ def thread(res: bytes) -> ParsedThread | ParserError:
                         tags.append(Tag[tag])
         tags = tuple(sorted(tags, key=lambda tag: tag.name))
 
-        elem = post.find(is_class("bbWrapper")).find(lambda elem: elem.name == "img" and "data-src" in elem.attrs)
+        elem = post.find(is_class("bbWrapper")).find(lambda elem: elem.name == "div" and "data-src" in elem.attrs)
         if elem:
             image_url = elem.get("data-src")
         else:
