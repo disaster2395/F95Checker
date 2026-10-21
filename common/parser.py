@@ -339,7 +339,7 @@ def thread(res: bytes) -> ParsedThread | ParserError:
                 if elem := post.find(is_class("message-lastEdit")):
                     last_updated = int(elem.find("time").get("data-time"))
                 else:
-                    last_updated = int(post.find(is_class("message-attribution-main")).find("time").get("data-time"))
+                    last_updated = int(post.find(is_class("message-attribution-main")).find("time").get("data-timestamp"))
             except Exception:
                 pass
         last_updated = datestamp(last_updated)
@@ -559,7 +559,7 @@ def reviews(res: bytes) -> ParsedReviews | ParserError:
                 likes = len(likes_bar.find_all("bdi"))
                 if likes_match := re.search(r"and (\d+) other", likes_bar.get_text().replace(",", "")):
                     likes += int(likes_match.group(1))
-            timestamp = int(review.find(is_class("u-dt")).get("data-time"))
+            timestamp = int(review.find(is_class("u-dt")).get("data-timestamp"))
             parsed_review = ParsedReview(
                 user=user,
                 score=score,
