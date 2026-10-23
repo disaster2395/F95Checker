@@ -291,6 +291,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     )
     if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
         req_opts["ssl"] = False
+    req_opts |= kwargs
     while retries and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
@@ -306,8 +307,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
             async with maybe_ratelimit, session.request(
                 method,
                 url,
-                **req_opts,
-                **kwargs
+                **req_opts
             ) as req:
                 if _can_ratelimit() and req.status == 429:
                     await _do_ratelimit()
@@ -594,8 +594,18 @@ async def download_webpage(url: str):
 async def download_image(url: str):
     with images_counter:
         while True:
+            async def raise_for_status(res: aiohttp.ClientResponse):
+                # Ignore redirects, mostly to avoid strain on forum servers due to failed signed URL checks on attachments servers
+                if 300 <= res.status:
+                    raise aiohttp.ClientResponseError(
+                        res.request_info,
+                        res.history,
+                        status=res.status,
+                        message=res.reason,
+                        headers=res.headers,
+                    )
             try:
-                res = await fetch("GET", url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
+                res = await fetch("GET", url, timeout=globals.settings.request_timeout * 4, allow_redirects=False, raise_for_status=raise_for_status)
             except aiohttp.ClientResponseError as exc:
                 if exc.status < 400:
                     raise  # Not error status
