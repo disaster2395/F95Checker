@@ -262,7 +262,9 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     headers = kwargs.pop("headers", None)
     if not headers:
         headers = {}
-    retries = globals.settings.max_retries + 1
+    attempts = kwargs.pop("attempts", None)
+    if not attempts:
+        attempts = globals.settings.max_retries + 1
     if cookies is True or cookies is None:
         cookies = globals.cookies
     elif cookies is False:
@@ -292,7 +294,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
         req_opts["ssl"] = False
     req_opts |= kwargs
-    while retries and ratelimit_retries:
+    while attempts and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
             if is_forum_request:
@@ -374,8 +376,8 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             if globals.settings.ignore_semaphore_timeouts and isinstance(exc, OSError) and exc.errno == 121:
                 continue
-            retries -= 1
-            if not retries:
+            attempts -= 1
+            if not attempts:
                 raise
 
 
