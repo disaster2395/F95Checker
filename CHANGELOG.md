@@ -1,7 +1,17 @@
+## 11.2.2
+
+### Fixed:
+- Slow responses from cache api are now handled gracefully (by @WillyJL)
+
 ## 11.2.1
+
+### Updated:
+- Incremental changelog system, showing changelogs for all versions between your current one and the new one (by @WillyJL)
 
 ### Fixed:
 - Fix Windows notifications with PyWinRT 4.0 (#326 by @zerebos)
+- Fix duplicate preview images (by @WillyJL)
+- Release will not update to beta if beta is older than release (by @WillyJL)
 
 ## 11.2
 
