@@ -549,8 +549,7 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
 def raise_api_error(res: bytes | dict):
     if isinstance(res, bytes):
         if any(msg in res for msg in (
-            b"<title>api.f95checker.dev | 502: Bad gateway</title>",
-            b"<title>api.f95checker.dev | 521: Web server is down</title>",
+            b'<div id="cf-error-details" class="p-0">',
         )) or not res:
             raise msgbox.Exc(
                 "Server downtime",
@@ -996,7 +995,7 @@ async def fast_check(games: list[Game], full: bool, updates: dict[int, OldGame],
         async with fast_checks_sem:
             res = None
             try:
-                res = await fetch("GET", api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=120, cookies=False)
+                res = await fetch("GET", api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=600, cookies=False)
                 raise_api_error(res)
                 last_changes = json.loads(res)
                 raise_api_error(last_changes)
