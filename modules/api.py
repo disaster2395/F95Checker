@@ -148,7 +148,7 @@ updating = False
 session: aiohttp.ClientSession = None
 ssl_context: ssl.SSLContext = None
 temp_prefix = "F95Checker-Temp-"
-f95_ratelimit_forum = aiolimiter.AsyncLimiter(max_rate=1, time_period=2)
+f95_ratelimit_forum = aiolimiter.AsyncLimiter(max_rate=1, time_period=1)
 f95_ratelimit_attachments = aiolimiter.AsyncLimiter(max_rate=2, time_period=1)
 f95_ratelimit_sleeping = CounterContext()
 fast_checks_sem: asyncio.Semaphore = None
