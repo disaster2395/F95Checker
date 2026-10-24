@@ -202,6 +202,8 @@ def make_session():
         headers={
             "User-Agent": user_agent,
         },
+        max_line_size=256 * 1024,
+        max_field_size=256 * 1024,
     )
 
     if old_session:
