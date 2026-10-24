@@ -135,7 +135,8 @@ api_fast_check_url = api_host + "/fast?ids={ids}"
 api_full_check_url = api_host + "/full/{id}?ts={ts}"
 api_fast_check_max_ids = 10
 
-app_update_endpoint = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
+app_update_stable_latest = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
+app_update_stable_changelog = "https://raw.githubusercontent.com/WillyJL/F95Checker/refs/tags/{tag_name}/CHANGELOG.md"
 app_update_beta_runs = "https://api.github.com/repos/WillyJL/F95Checker/actions/workflows/build.yml/runs?status=success&per_page=1"
 app_update_beta_artifacts = "https://api.github.com/repos/WillyJL/F95Checker/actions/runs/{run_id}/artifacts"
 app_update_beta_download = "https://github.com/WillyJL/F95Checker/suites/{check_suite_id}/artifacts/{artifact_id}"
@@ -1373,9 +1374,9 @@ async def check_updates():
                     break
             asset_artifact = True
             res = await fetch("GET", app_update_beta_changelog.format(head_sha=run["head_sha"]))
-            changelog = res.decode()
+            changelog_full = res.decode()
         else:
-            res = await fetch("GET", app_update_endpoint, headers={"Accept": "application/vnd.github+json"})
+            res = await fetch("GET", app_update_stable_latest, headers={"Accept": "application/vnd.github+json"})
             res = json.loads(res)
             globals.last_update_check = time.time()
             if "tag_name" not in res:
@@ -1410,12 +1411,24 @@ async def check_updates():
                     asset_size = asset["size"]
                     break
             asset_artifact = False
-            changelog = res["body"].strip("\n")
-            if (match := "## 🚀 Changelog") in changelog:
-                changelog = changelog[changelog.find(match) + len(match):].strip()
+            res = await fetch("GET", app_update_stable_changelog.format(tag_name=res["tag_name"]))
+            changelog_full = res.decode()
 
         if not update_available or not asset_url or not asset_name or not asset_size:
             return
+
+        changelog = ""
+        for changes in ("\n" + changelog_full).split("\n## ")[1:]:  # Split by each version's title
+            version, changes = changes.split("\n", 1)  # Split into version name and its changelog
+            version = version.strip()
+            changes = changes.strip()
+            if globals.release and version == globals.version:
+                break
+            changelog += f"## {version}\n\n{changes}\n\n"
+            if not globals.release and version == globals.version:
+                break
+        changelog = changelog.strip() + "\n"
+
     except Exception as exc:
         if isinstance(exc, msgbox.Exc) or not res:
             raise exc
