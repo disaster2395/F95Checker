@@ -30,6 +30,7 @@ platform_packages = {
     "linux": ["dbus_fast"],
 }
 constants = []
+bin_path_includes = []
 bin_includes = []
 bin_excludes = []
 platform_libs = {
@@ -41,6 +42,8 @@ platform_libs = {
         "sqlite3",
         "ssl",
         "xcb-cursor",
+        "z",
+        "zstd",
     ],
     "darwin": ["intl"],
 }
@@ -64,6 +67,7 @@ zip_exclude_packages = [
     "bencode2",
     "desktop_notifier",
     "glfw",
+    "winrt",
 ] + (["PyQt6"] if sys.platform.startswith("win") else [])
 optimize = 2
 silent_level = 0
@@ -87,7 +91,19 @@ for platform, pkgs in platform_packages.items():
             packages.append(pkg)
 
 
+# Bundle all winrt namespaces, they can be imported by name at runtime
+# and cx_Freeze's hook skips namespace folders without __init__.py
+if sys.platform.startswith("win"):
+    import pathlib
+    import winrt
+    for winrt_path in winrt.__path__:
+        for table in pathlib.Path(winrt_path).rglob("_table.pywinrt"):
+            packages.append(".".join(("winrt", *table.parent.relative_to(winrt_path).parts)))
+
+
 # Bundle system libraries
+if sys.platform.startswith("linux"):
+    bin_path_includes.append("/usr/lib/x86_64-linux-gnu")
 for platform, libs in platform_libs.items():
     if sys.platform.startswith(platform):
         for lib in libs:
@@ -163,6 +179,7 @@ cx_Freeze.setup(
             "excludes": excludes,
             "packages": packages,
             "constants": constants,
+            "bin_path_includes": bin_path_includes,
             "bin_includes": bin_includes,
             "bin_excludes": bin_excludes,
             "include_files": include_files,

@@ -2,6 +2,7 @@ import asyncio
 import configparser
 import contextlib
 import fnmatch
+import functools
 import hashlib
 import http.cookies
 import io
@@ -79,14 +80,22 @@ f95_notif_endpoint      = f95_host + "/direct-messages/popup?_xfResponseType=jso
 f95_alerts_page         = f95_host + "/account/alerts/"
 f95_inbox_page          = f95_host + "/direct-messages/"
 f95_threads_page        = f95_host + "/threads/"
-f95_bookmarks_page      = f95_host + "/account/bookmarks?difference=0&page={page}"
-f95_watched_page        = f95_host + "/watched/threads?unread=0&page={page}"
+f95_watched_new_page    = f95_host + "/watched/threads?tab=new&src=watched&hide_seen=0&page={page}"
+f95_watched_games_page  = f95_host + "/watched/threads?tab=games&unread=0&page={page}"
+f95_watched_other_page  = f95_host + "/watched/threads?tab=other&unread=0&page={page}"
+f95_bookmark_new_page   = f95_host + "/watched/threads?tab=new&src=bookmarked&hide_seen=0&page={page}"
+f95_bookmark_main_page = f95_host + "/watched/threads?tab=bookmarks&page={page}"
 f95_latest_endpoint     = f95_host + "/sam/latest_alpha/latest_data.php?cmd={cmd}&cat={cat}&page={page}&{search}={query}&sort={sort}&rows={rows}&_={ts}"
 f95_ddl_endpoint        = f95_host + "/sam/dddl.php"
+f95_attachments_domains = (
+    f95_attachments_domain := f"attachments.{f95_domain}",
+    f95_attachments_domain_com := f"attachments.{f95_domain_com}",
+    f95_attachments_domain_ninja := f"attachments.{f95_domain_ninja}",
+)
 f95_attachments_hosts = (
-    f"https://attachments.{f95_domain}/",
-    f"https://attachments.{f95_domain_com}/",
-    f95_attachments_host_ninja := f"https://attachments.{f95_domain_ninja}/",
+    f"https://{f95_attachments_domain}/",
+    f"https://{f95_attachments_domain_com}/",
+    f95_attachments_host_ninja := f"https://{f95_attachments_domain_ninja}/",
 )
 f95_not_forum_url_prefixes = (
     f95_host + "/sam/",
@@ -127,7 +136,8 @@ api_fast_check_url = "/fast?ids={ids}"
 api_full_check_url = "/full/{id}?ts={ts}"
 api_fast_check_max_ids = 10
 
-app_update_endpoint = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
+app_update_stable_latest = "https://api.github.com/repos/WillyJL/F95Checker/releases/latest"
+app_update_stable_changelog = "https://raw.githubusercontent.com/WillyJL/F95Checker/refs/tags/{tag_name}/CHANGELOG.md"
 app_update_beta_runs = "https://api.github.com/repos/WillyJL/F95Checker/actions/workflows/build.yml/runs?status=success&per_page=1"
 app_update_beta_artifacts = "https://api.github.com/repos/WillyJL/F95Checker/actions/runs/{run_id}/artifacts"
 app_update_beta_download = "https://github.com/WillyJL/F95Checker/suites/{check_suite_id}/artifacts/{artifact_id}"
@@ -144,7 +154,7 @@ session: aiohttp.ClientSession = None
 direct_session: aiohttp.ClientSession | None = None
 ssl_context: ssl.SSLContext = None
 temp_prefix = "F95Checker-Temp-"
-f95_ratelimit_forum = aiolimiter.AsyncLimiter(max_rate=1, time_period=2)
+f95_ratelimit_forum = aiolimiter.AsyncLimiter(max_rate=1, time_period=1)
 f95_ratelimit_attachments = aiolimiter.AsyncLimiter(max_rate=2, time_period=1)
 f95_ratelimit_sleeping = CounterContext()
 fast_checks_sem: asyncio.Semaphore = None
@@ -162,7 +172,9 @@ def make_session():
 
     # Setup new HTTP session and proxy
     if globals.settings.proxy_type is ProxyType.Disabled:
-        connector = None
+        connector = aiohttp.TCPConnector(
+            loop=async_thread.loop,
+        )
     else:
         proxy_type = python_socks.ProxyType.HTTP
         match globals.settings.proxy_type:
@@ -177,6 +189,19 @@ def make_session():
             password=globals.settings.proxy_password,
             loop=async_thread.loop,
         )
+
+    # Temporarily ignore the single attachments host with signed URLs enabled
+    async def resolve(self: aiohttp.DefaultResolver, host: str, port: int = 0, family: socket.AddressFamily = socket.AF_INET):
+        hosts = await type(self).resolve(self, host, port, family)
+        if host in f95_attachments_domains:
+            for host_i in reversed(range(len(hosts))):
+                if hosts[host_i].get("host") in (
+                    "91.202.4.58",
+                ):
+                    del hosts[host_i]
+        return hosts
+    connector._resolver.resolve = functools.partial(resolve, connector._resolver)
+
     session = aiohttp.ClientSession(
         loop=async_thread.loop,
         connector=connector,
@@ -184,6 +209,8 @@ def make_session():
         headers={
             "User-Agent": user_agent,
         },
+        max_line_size=256 * 1024,
+        max_field_size=256 * 1024,
     )
     direct_session = aiohttp.ClientSession(
         loop=async_thread.loop,
@@ -282,7 +309,9 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     headers = kwargs.pop("headers", None)
     if not headers:
         headers = {}
-    retries = globals.settings.max_retries + 1
+    attempts = kwargs.pop("attempts", None)
+    if not attempts:
+        attempts = globals.settings.max_retries + 1
     if cookies is True or cookies is None:
         cookies = globals.cookies
     elif cookies is False:
@@ -311,7 +340,8 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
     )
     if url.startswith(insecure_ssl_allowed_hosts) or globals.settings.insecure_ssl:
         req_opts["ssl"] = False
-    while retries and ratelimit_retries:
+    req_opts |= kwargs
+    while attempts and ratelimit_retries:
         try:
             # Only ratelimit when connecting to F95zone
             if is_forum_request:
@@ -326,8 +356,7 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
             async with maybe_ratelimit, request_session.request(
                 method,
                 url,
-                **req_opts,
-                **kwargs
+                **req_opts
             ) as req:
                 if _can_ratelimit() and req.status == 429:
                     await _do_ratelimit()
@@ -394,8 +423,8 @@ async def request(method: str, url: str, read=True, cookies: dict = True, **kwar
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             if globals.settings.ignore_semaphore_timeouts and isinstance(exc, OSError) and exc.errno == 121:
                 continue
-            retries -= 1
-            if not retries:
+            attempts -= 1
+            if not attempts:
                 raise
 
 
@@ -540,9 +569,8 @@ def raise_f95zone_error(res: bytes | dict, return_login=False):
 def raise_api_error(res: bytes | dict):
     if isinstance(res, bytes):
         if any(msg in res for msg in (
-            b"<title>api.f95checker.dev | 502: Bad gateway</title>",
-            b"<title>api.f95checker.dev | 521: Web server is down</title>",
-        )):
+            b'<div id="cf-error-details" class="p-0">',
+        )) or not res:
             raise msgbox.Exc(
                 "Server downtime",
                 "The F95Checker Cache API is currently unreachable,\n"
@@ -614,8 +642,18 @@ async def download_webpage(url: str):
 async def download_image(url: str):
     with images_counter:
         while True:
+            async def raise_for_status(res: aiohttp.ClientResponse):
+                # Ignore redirects, mostly to avoid strain on forum servers due to failed signed URL checks on attachments servers
+                if 300 <= res.status:
+                    raise aiohttp.ClientResponseError(
+                        res.request_info,
+                        res.history,
+                        status=res.status,
+                        message=res.reason,
+                        headers=res.headers,
+                    )
             try:
-                res = await fetch("GET", url, timeout=globals.settings.request_timeout * 4, raise_for_status=True)
+                res = await fetch("GET", url, timeout=globals.settings.request_timeout * 4, allow_redirects=False, raise_for_status=raise_for_status)
             except aiohttp.ClientResponseError as exc:
                 if exc.status < 400:
                     raise  # Not error status
@@ -867,60 +905,87 @@ async def import_browser_bookmarks(file: str | pathlib.Path):
         )
 
 
+async def import_f95_watched():
+    globals.refresh_total = 1
+    if not await assert_login():
+        return
+    globals.refresh_progress = 1
+    threads = []
+    for f95_watched_page in (
+        f95_watched_new_page,
+        f95_watched_games_page,
+        f95_watched_other_page,
+    ):
+        page = 1
+        while True:
+            globals.refresh_total += 1
+            res = await fetch("GET", f95_watched_page.format(page=page))
+            raise_f95zone_error(res)
+            html = parser.html(res)
+            if f95_watched_page == f95_watched_new_page:
+                rows = html.find(parser.is_class("p-body-pageContent")).find_all(parser.is_class("f95wg-row"))
+                globals.refresh_progress += 1
+                if not rows:
+                    break
+                page += 1
+                for row in rows:
+                    threads += utils.extract_thread_matches(row.find(parser.is_class("f95wg-row-title")).find("a").get("href"))
+            else:
+                rows = html.find(parser.is_class("p-body-pageContent")).find(parser.is_class("structItemContainer"))
+                globals.refresh_progress += 1
+                if not rows:
+                    break
+                page += 1
+                for title in rows.find_all(parser.is_class("structItem-title")):
+                    threads += utils.extract_thread_matches(title.get("uix-href"))
+    if threads:
+        await callbacks.add_games(*threads, force_summary=True)
+    else:
+        utils.push_popup(
+            msgbox.msgbox, "No threads",
+            "Your F95zone watched list contains no valid threads to import!",
+            MsgBox.warn
+        )
+
+
 async def import_f95_bookmarks():
     globals.refresh_total = 1
     if not await assert_login():
         return
     globals.refresh_progress = 1
-    page = 0
     threads = []
-    while True:
-        globals.refresh_total += 1
-        res = await fetch("GET", f95_bookmarks_page.format(page=page))
-        raise_f95zone_error(res)
-        html = parser.html(res)
-        bookmarks = html.find(parser.is_class("p-body-pageContent")).find(parser.is_class("listPlain"))
-        globals.refresh_progress += 1
-        if not bookmarks:
-            break
-        page += 1
-        for title in bookmarks.find_all(parser.is_class("contentRow-title")):
-            threads += utils.extract_thread_matches(title.find("a").get("href"))
+    for f95_bookmark_page in (
+        f95_bookmark_new_page,
+        f95_bookmark_main_page,
+    ):
+        page = 1
+        while True:
+            globals.refresh_total += 1
+            res = await fetch("GET", f95_bookmark_page.format(page=page))
+            raise_f95zone_error(res)
+            html = parser.html(res)
+            if f95_bookmark_page == f95_bookmark_new_page:
+                rows = html.find(parser.is_class("p-body-pageContent")).find_all(parser.is_class("f95wg-row"))
+                globals.refresh_progress += 1
+                if not rows:
+                    break
+                page += 1
+                for row in rows:
+                    threads += utils.extract_thread_matches(row.find(parser.is_class("f95wg-row-title")).find("a").get("href"))
+            else:
+                rows = html.find(parser.is_class("p-body-pageContent")).find(parser.is_class("listPlain"))
+                globals.refresh_progress += 1
+                if not rows:
+                    break
+                page += 1
+                for title in rows.find_all(parser.is_class("contentRow-title")):
+                    threads += utils.extract_thread_matches(title.find("a").get("href"))
     if threads:
         await callbacks.add_games(*threads, force_summary=True)
     else:
         utils.push_popup(
             msgbox.msgbox, "No threads",
-            "Your F95zone bookmarks contain no valid threads to import!",
-            MsgBox.warn
-        )
-
-
-async def import_f95_watched_threads():
-    globals.refresh_total = 1
-    if not await assert_login():
-        return
-    globals.refresh_progress = 1
-    page = 1
-    threads = []
-    while True:
-        globals.refresh_total += 1
-        res = await fetch("GET", f95_watched_page.format(page=page))
-        raise_f95zone_error(res)
-        html = parser.html(res)
-        watched = html.find(parser.is_class("p-body-pageContent")).find(parser.is_class("structItemContainer"))
-        globals.refresh_progress += 1
-        if not watched:
-            break
-        page += 1
-        for title in watched.find_all(parser.is_class("structItem-title")):
-            threads += utils.extract_thread_matches(title.get("uix-data-href"))
-    if threads:
-        await callbacks.add_games(*threads, force_summary=True)
-    else:
-        utils.push_popup(
-            msgbox.msgbox, "No threads",
-            "Your F95zone watched threads contain no valid threads to import!",
+            "Your F95zone bookmark list contains no valid threads to import!",
             MsgBox.warn
         )
 
@@ -950,7 +1015,7 @@ async def fast_check(games: list[Game], full: bool, updates: dict[int, OldGame],
         async with fast_checks_sem:
             res = None
             try:
-                res = await fetch("GET", globals.settings.api_url.rstrip("/") + api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=120, cookies=False)
+                res = await fetch("GET", globals.settings.api_url.rstrip("/") + api_fast_check_url.format(ids=",".join(str(game.id) for game in games)), timeout=600, cookies=False)
                 raise_api_error(res)
                 last_changes = json.loads(res)
                 raise_api_error(last_changes)
@@ -1328,9 +1393,9 @@ async def check_updates():
                     break
             asset_artifact = True
             res = await fetch("GET", app_update_beta_changelog.format(head_sha=run["head_sha"]))
-            changelog = res.decode()
+            changelog_full = res.decode()
         else:
-            res = await fetch("GET", app_update_endpoint, headers={"Accept": "application/vnd.github+json"})
+            res = await fetch("GET", app_update_stable_latest, headers={"Accept": "application/vnd.github+json"})
             res = json.loads(res)
             globals.last_update_check = time.time()
             if "tag_name" not in res:
@@ -1365,12 +1430,24 @@ async def check_updates():
                     asset_size = asset["size"]
                     break
             asset_artifact = False
-            changelog = res["body"].strip("\n")
-            if (match := "## 🚀 Changelog") in changelog:
-                changelog = changelog[changelog.find(match) + len(match):].strip()
+            res = await fetch("GET", app_update_stable_changelog.format(tag_name=res["tag_name"]))
+            changelog_full = res.decode()
 
         if not update_available or not asset_url or not asset_name or not asset_size:
             return
+
+        changelog = ""
+        for changes in ("\n" + changelog_full).split("\n## ")[1:]:  # Split by each version's title
+            version, changes = changes.split("\n", 1)  # Split into version name and its changelog
+            version = version.strip()
+            changes = changes.strip()
+            if globals.release and version == globals.version:
+                break
+            changelog += f"## {version}\n\n{changes}\n\n"
+            if not globals.release and version == globals.version:
+                break
+        changelog = changelog.strip() + "\n"
+
     except Exception as exc:
         if isinstance(exc, msgbox.Exc) or not res:
             raise exc

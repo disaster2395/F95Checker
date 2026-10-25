@@ -3194,9 +3194,13 @@ class MainGUI():
             imgui.text("Supporters:")
             for name in [
                 "FaceCrap",
-                "WhiteVanDaycare",
+                "kitty_kt",
+                "laseracid",
                 "ascsd",
                 "GioBol",
+                "Turribel",
+                "leavy",
+                "WhiteVanDaycare",
                 "Jarulf",
                 "salkrim",
                 "rozzic",
@@ -3221,19 +3225,23 @@ class MainGUI():
             imgui.bullet()
             imgui.text("blackop: Proxy support, temporary ratelimit fix, linux login fix")
             imgui.bullet()
+            imgui.text("Crykon: Preview images")
+            imgui.bullet()
             imgui.text("cicklolwut: Security fixes, Linux wine/proton config, playtime stats")
             imgui.bullet()
-            imgui.text("Sam: Support from F95zone side to make much this possible")
+            imgui.text("Sam: Support from F95zone side to make much of this possible")
             imgui.bullet()
-            imgui.text("GR3ee3N: Optimized build workflows and other PRs")
-            imgui.bullet()
-            imgui.text("batblue: MacOS suppport and feedback guy")
+            imgui.text("batblue: macOS suppport and feedback guy")
             imgui.bullet()
             imgui.text("unroot: Linux support and feedback guy")
             imgui.bullet()
-            imgui.text("ploper26: Suggested HEAD checks (no longer used)")
+            imgui.text("ploper26: Suggested HEAD requests for refreshing (no longer used)")
             imgui.bullet()
             imgui.text("ascsd: Helped with brainstorming on some issues and gave some tips")
+            imgui.bullet()
+            imgui.text("GR3ee3N: Optimized build workflows and other PRs")
+            imgui.bullet()
+            imgui.text("See the full list on GitHub")
             imgui.spacing()
             imgui.spacing()
             imgui.text("Community:")
@@ -3244,14 +3252,15 @@ class MainGUI():
                 "BrockLanders",
                 "d_pedestrian",
                 "Danv",
-                "DarK x Duke",
+                "DarK",
+                "Dfour",
                 "Dukez",
-                "GrammerCop",
+                "Fauno36",
                 "harem.king",
                 "MillenniumEarl",
                 "simple_human",
+                "SirKat",
                 "SmurfyBlue",
-                "WhiteVanDaycare",
                 "yohudood",
                 "And others that I might be forgetting"
             ]:
@@ -5253,10 +5262,10 @@ class MainGUI():
                         closable=True,
                         outside=False
                     )
-                if imgui.button("F95 bookmarks", width=-offset):
+                if imgui.button("F95zone watched", width=-offset):
+                    utils.start_refresh_task(api.import_f95_watched(), reset_bg_timers=False)
+                if imgui.button("F95zone bookmarks", width=-offset):
                     utils.start_refresh_task(api.import_f95_bookmarks(), reset_bg_timers=False)
-                if imgui.button("F95 watched threads", width=-offset):
-                    utils.start_refresh_task(api.import_f95_watched_threads(), reset_bg_timers=False)
                 if imgui.button("Browser bookmarks", width=-offset):
                     def callback(selected):
                         if selected:
@@ -5986,14 +5995,17 @@ class MainGUI():
                 else:
                     space_after = 0
 
-                ratio = download.progress / (download.total or 1)
+                if errored and download.state != download.State.Downloading:
+                    ratio = 0.0
+                else:
+                    ratio = download.progress / (download.total or 1)
                 downd = download.progress
                 speed = downd / ((download.current - download.start) or 1)
                 width = imgui.get_content_region_available_width() - space_after
                 height = imgui.get_frame_height()
                 imgui.progress_bar(ratio, (width, height))
                 if download.state == download.State.Downloading:
-                    text = f"{utils.sizeof_fmt(downd):>7} {min(ratio, 99):>3.0%} ({utils.sizeof_fmt(speed):>7}/s)"
+                    text = f"{utils.sizeof_fmt(downd):>7} {min(ratio, 0.99):>3.0%} ({utils.sizeof_fmt(speed):>7}/s)"
                 elif download.state == download.State.Stopped:
                     if not errored:
                         text = "Done!"
@@ -6036,6 +6048,8 @@ class MainGUI():
                     imgui.same_line()
                     if imgui.button(icons.trash_can_outline):
                         async_thread.run(download.delete())
+                else:
+                    imgui.dummy(0, 0)
             for download_id in to_remove:
                 del api.downloads[download_id]
 
