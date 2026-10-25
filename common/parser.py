@@ -532,6 +532,18 @@ developer_remove_patterns = [
 
 
 def reviews(res: bytes) -> ParsedReviews | ParserError:
+    if b"Please confirm you're not a bot to keep reading reviews." in res:
+        import time
+        return ParsedReviews(
+            total=1,
+            items=[ParsedReview(
+                user="F95Checker Cache API",
+                score=0,
+                message="Could not fetch reviews at this time.",
+                likes=0,
+                timestamp=int(time.time()),
+            )],
+        )
     try:
         html = _html(res)
         body = html.find(is_class("p-body-pageContent"))
