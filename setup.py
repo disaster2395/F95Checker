@@ -35,7 +35,9 @@ bin_excludes = []
 platform_libs = {
     "linux": [
         "!EGL",
+        "z",
         "bz2",
+        "zstd",
         "crypto",
         "ffi",
         "sqlite3",

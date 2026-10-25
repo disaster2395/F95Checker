@@ -73,7 +73,7 @@ jobs:
       - name: "Install dependencies (Linux)"
         if: "runner.os == 'Linux'"
         run: |
-          sudo apt install -y libxcb-cursor-dev
+          sudo apt install -y libxcb-cursor-dev xcb-util-cursor
           find /usr/lib -name 'libxcb-cursor*.so'
 
       - name: "Build (Windows, Linux)"
