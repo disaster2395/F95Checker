@@ -5893,7 +5893,10 @@ class MainGUI():
                 else:
                     space_after = 0
 
-                ratio = download.progress / (download.total or 1)
+                if errored and download.state != download.State.Downloading:
+                    ratio = 0.0
+                else:
+                    ratio = download.progress / (download.total or 1)
                 downd = download.progress
                 speed = downd / ((download.current - download.start) or 1)
                 width = imgui.get_content_region_available_width() - space_after
