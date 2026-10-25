@@ -548,22 +548,23 @@ def reviews(res: bytes) -> ParsedReviews | ParserError:
             return e
         parsed_reviews = []
         reviews_list = body.find(is_class("f95rv-cards"))
-        for review in reviews_list.find_all(is_class("f95rv-card")):
-            user = review.get("data-author")
-            score = int(review.find(is_class("f95rv-stars")).get("aria-label")[0])
-            message = review.find(is_class("bbWrapper")).find(is_class("bbWrapper")).get_text()
-            for goofy_unicode in "\u2063\u200c\u200b\u2064":
-                message = message.replace(goofy_unicode, "")
-            likes = int(review.find(is_class("f95rv-vote")).get_text().split(" ")[-1])
-            timestamp = int(review.find(is_class("u-dt")).get("data-timestamp"))
-            parsed_review = ParsedReview(
-                user=user,
-                score=score,
-                message=message,
-                likes=likes,
-                timestamp=timestamp,
-            )
-            parsed_reviews.append(parsed_review)
+        if reviews_list:
+            for review in reviews_list.find_all(is_class("f95rv-card")):
+                user = review.get("data-author")
+                score = int(review.find(is_class("f95rv-stars")).get("aria-label")[0])
+                message = review.find(is_class("bbWrapper")).find(is_class("bbWrapper")).get_text()
+                for goofy_unicode in "\u2063\u200c\u200b\u2064":
+                    message = message.replace(goofy_unicode, "")
+                likes = int(review.find(is_class("f95rv-vote")).get_text().split(" ")[-1])
+                timestamp = int(review.find(is_class("u-dt")).get("data-timestamp"))
+                parsed_review = ParsedReview(
+                    user=user,
+                    score=score,
+                    message=message,
+                    likes=likes,
+                    timestamp=timestamp,
+                )
+                parsed_reviews.append(parsed_review)
         match = re.search(r"reviews\s*\(([\d,]+)\)", html.find(is_class("tabs")).get_text(), re.M | re.I)
         total = int(match.group(1).replace(",", ""))
     except Exception:
