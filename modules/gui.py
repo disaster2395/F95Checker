@@ -5900,7 +5900,7 @@ class MainGUI():
                 height = imgui.get_frame_height()
                 imgui.progress_bar(ratio, (width, height))
                 if download.state == download.State.Downloading:
-                    text = f"{utils.sizeof_fmt(downd):>7} {min(ratio, 99):>3.0%} ({utils.sizeof_fmt(speed):>7}/s)"
+                    text = f"{utils.sizeof_fmt(downd):>7} {min(ratio, 0.99):>3.0%} ({utils.sizeof_fmt(speed):>7}/s)"
                 elif download.state == download.State.Stopped:
                     if not errored:
                         text = "Done!"
@@ -5943,6 +5943,8 @@ class MainGUI():
                     imgui.same_line()
                     if imgui.button(icons.trash_can_outline):
                         async_thread.run(download.delete())
+                else:
+                    imgui.dummy(0, 0)
             for download_id in to_remove:
                 del api.downloads[download_id]
 
