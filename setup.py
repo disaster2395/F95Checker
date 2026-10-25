@@ -180,6 +180,7 @@ cx_Freeze.setup(
             "excludes": excludes,
             "packages": packages,
             "constants": constants,
+            "bin_path_includes": ["/usr/lib/x86_64-linux-gnu"],
             "bin_includes": bin_includes,
             "bin_excludes": bin_excludes,
             "include_files": include_files,
