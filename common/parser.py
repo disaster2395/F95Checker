@@ -549,17 +549,16 @@ def reviews(res: bytes) -> ParsedReviews | ParserError:
                 )
             return e
         parsed_reviews = []
-        for review in body.find_all(is_class("block-row")):
+        reviews_list = body.find(is_class("f95rv-list"))
+        for review in reviews_list.find_all(is_class("block-row")):
             user = review.get("data-author")
-            score = int(review.find(is_class("ratingStars")).get("title")[0])
+            score = int(review.find(is_class("f95rv-stars")).get("aria-label")[0])
             message = review.find(is_class("bbWrapper")).get_text()
-            likes_bar = review.find(is_class("likesBar")).find("a")
+            likes_bar = review.find(is_class("f95rv-helpful-count")).find("a")
             if not likes_bar:
                 likes = 0
             else:
-                likes = len(likes_bar.find_all("bdi"))
-                if likes_match := re.search(r"and (\d+) other", likes_bar.get_text().replace(",", "")):
-                    likes += int(likes_match.group(1))
+                likes = int(likes_bar.get_text().split(" ")[0])
             timestamp = int(review.find(is_class("u-dt")).get("data-timestamp"))
             parsed_review = ParsedReview(
                 user=user,
@@ -569,7 +568,7 @@ def reviews(res: bytes) -> ParsedReviews | ParserError:
                 timestamp=timestamp,
             )
             parsed_reviews.append(parsed_review)
-        total = int(body.find(is_class("js-displayTotals")).get("data-total"))
+        total = int(html.find(is_class("f95rv-banner-count")).get_text().split(" ")[0])
     except Exception:
         e = ParserError(
             message=f"Unhandled exception: {error.text()}",
