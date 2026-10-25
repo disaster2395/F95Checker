@@ -35,14 +35,19 @@ bin_excludes = []
 platform_libs = {
     "linux": [
         "!EGL",
-        "z",
         "bz2",
-        "zstd",
         "crypto",
         "ffi",
+        "Qt6EglFSDeviceIntegration",
+        "Qt6EglFsKmsGbmSupport",
+        "Qt6EglFsKmsSupport",
+        "Qt6WebView",
+        "Qt6WebViewQuick",
         "sqlite3",
         "ssl",
         "xcb-cursor",
+        "z",
+        "zstd",
     ],
     "darwin": ["intl"],
 }
