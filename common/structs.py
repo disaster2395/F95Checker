@@ -924,6 +924,7 @@ class Settings:
     play_gifs_unfocused         : bool
     preload_nearby_images       : bool
     previews_enabled            : bool
+    previews_height             : int
     proxy_type                  : ProxyType
     proxy_host                  : str
     proxy_port                  : int
