@@ -9,6 +9,7 @@
 - Fix libraries not being bundled on Linux (by @WillyJL)
 - Fix height shifting during verification and extraction of Donor DDL files (by @WillyJL)
 - Show empty progress bar when showing a Donor DDL error (by @WillyJL)
+- Updated browser addon for new reviews page (by @WillyJL)
 
 ## 11.2.1
 
