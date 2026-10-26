@@ -10,6 +10,7 @@
 - Fix height shifting during verification and extraction of Donor DDL files (by @WillyJL)
 - Show empty progress bar when showing a Donor DDL error (by @WillyJL)
 - Updated browser addon for new reviews page (by @WillyJL)
+- Fix private mode option for LibreWolf, Floorp, Zen, Helium (by @WillyJL)
 
 ## 11.2.1
 
