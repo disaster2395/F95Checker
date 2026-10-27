@@ -339,6 +339,8 @@ class MainGUI():
         self.game_hitbox_click = False
         self.hovered_game: Game = None
         self.dragging_previews = False
+        self.grabbing_previews_scrollbar = False
+        self.resizing_previews_height = False
         self.filters: list[Filter] = []
         self.poll_chars: list[int] = []
         self.refresh_ratio_smooth = 0.0
@@ -2430,7 +2432,14 @@ class MainGUI():
                 # the row in a child with an explicit horizontal bar.
                 # Without a child, ImGui clips same-line items at the
                 # popup boundary and the parent only scrolls vertically.
-                preview_height = self.scaled(200)
+                preview_height = self.scaled(globals.settings.previews_height)
+                if self.grabbing_previews_scrollbar:
+                    drag_delta = imgui.get_mouse_drag_delta()
+                    if self.resizing_previews_height or abs(drag_delta.y) > self.scaled(20.0):
+                        self.resizing_previews_height = True
+                        preview_height = min(max(self.scaled(20.0), preview_height + drag_delta.y), self.scaled(500.0))
+                    elif abs(drag_delta.x) > self.scaled(10.0):
+                        self.grabbing_previews_scrollbar = False
                 horizontal_flags = (
                     imgui.WINDOW_HORIZONTAL_SCROLLING_BAR |
                     imgui.WINDOW_ALWAYS_HORIZONTAL_SCROLLBAR |
@@ -2485,6 +2494,20 @@ class MainGUI():
                         self.dragging_previews = False
                     first = False
                 imgui.end_child()
+                mouse_pos = imgui.io.mouse_pos
+                item_rect_min = imgui.get_item_rect_min()
+                item_rect_max = imgui.get_item_rect_max()
+                if self.grabbing_previews_scrollbar or ((item_rect_min.x < mouse_pos.x and mouse_pos.x < item_rect_max.x) and
+                    (item_rect_max.y - imgui.style.scrollbar_size < mouse_pos.y and mouse_pos.y < item_rect_max.y)):
+                        if imgui.is_mouse_clicked():
+                            self.grabbing_previews_scrollbar = True
+                        if imgui.is_mouse_released():
+                            self.grabbing_previews_scrollbar = False
+                            if self.resizing_previews_height:
+                                drag_delta = imgui.get_mouse_drag_delta()
+                                globals.settings.previews_height = preview_height / globals.settings.interface_scaling
+                                async_thread.run(db.update_settings("previews_height"))
+                                self.resizing_previews_height = False
             imgui.push_text_wrap_pos()
 
             # Fullscreen image viewer
@@ -2503,13 +2526,16 @@ class MainGUI():
                 imgui.set_next_window_bg_alpha(0.75)
                 imgui.push_style_var(imgui.STYLE_POPUP_BORDERSIZE, 0)
                 if imgui.begin_popup(fullscreen_viewer_id, imgui.WINDOW_NO_SCROLLBAR):
+                    # The cover is image 0 and the previews come after it
+                    images_count = len(game.preview_images) + 1
+                    def cycle_fullscreen_viewer(diff: int):
+                        self.fullscreen_viewer_i = (self.fullscreen_viewer_i + diff) % images_count
+                        self.fullscreen_viewer_zoom = 1.0
                     if imgui.is_topmost() and not imgui.is_any_item_active():
                         if imgui.is_key_pressed(glfw.KEY_LEFT, repeat=True):
-                            self.fullscreen_viewer_i = (self.fullscreen_viewer_i - 1) % (len(game.preview_images) + 1)
-                            self.fullscreen_viewer_zoom = 1.0
+                            cycle_fullscreen_viewer(-1)
                         if imgui.is_key_pressed(glfw.KEY_RIGHT, repeat=True):
-                            self.fullscreen_viewer_i = (self.fullscreen_viewer_i + 1) % (len(game.preview_images) + 1)
-                            self.fullscreen_viewer_zoom = 1.0
+                            cycle_fullscreen_viewer(+1)
                         if imgui.is_key_pressed(glfw.KEY_ESCAPE) or (imgui.is_key_pressed(glfw.KEY_SPACE) and not fullscreen_viewer_start):
                             imgui.close_current_popup()
                             fullscreen_viewer_closed = True
@@ -2522,8 +2548,7 @@ class MainGUI():
                                 self.scroll_energy = 0.0
                             else:
                                 diff = -1 if imgui.io.mouse_wheel > 0 else +1
-                            self.fullscreen_viewer_i = (self.fullscreen_viewer_i + diff) % (len(game.preview_images) + 1)
-                            self.fullscreen_viewer_zoom = 1.0
+                            cycle_fullscreen_viewer(diff)
                         if int(imgui.get_scroll_y() - 1.0):
                             if globals.settings.scroll_smooth:
                                 diff = imgui.io.delta_time * self.scroll_energy * 4
@@ -2552,7 +2577,50 @@ class MainGUI():
                         crop = ((crop[0][0] + off_x, crop[0][1] + off_y), (crop[1][0] + off_x, crop[1][1] + off_y))
                         crop = ((crop[0][0] / zoom, crop[0][1] / zoom), (crop[1][0] / zoom, crop[1][1] / zoom))
                         image.render(*size, *crop)
-                    if imgui.is_item_clicked():
+                    image_clicked = imgui.is_item_clicked()
+                    nav_clicked = False
+
+                    if images_count > 1:
+                        # Clickable arrows on the sides and an image counter at the bottom
+                        draw_list = imgui.get_window_draw_list()
+                        mouse_pos = imgui.io.mouse_pos
+
+                        # The click that opens the viewer from the cover must not also hit an arrow
+                        mouse_clicked = imgui.is_mouse_clicked() and not imgui.is_window_appearing()
+
+                        # Same look as the info popup's carousel arrows
+                        imgui.push_font(imgui.fonts.big)
+                        arrow_size = imgui.calc_text_size(icons.arrow_left_drop_circle)
+                        margin = self.scaled(20)
+                        y = (size.y - arrow_size.y) / 2
+                        col = imgui.get_color_u32_rgba(*globals.settings.style_text_dim)
+                        for diff, icon, x in (
+                            (-1, icons.arrow_left_drop_circle, margin),
+                            (+1, icons.arrow_right_drop_circle, size.x - margin - arrow_size.x),
+                        ):
+                            draw_list.add_text(x, y, col, icon)
+                            hovered = x <= mouse_pos.x <= x + arrow_size.x and y <= mouse_pos.y <= y + arrow_size.y
+                            if hovered and mouse_clicked:
+                                nav_clicked = True
+                                cycle_fullscreen_viewer(diff)
+
+                        # Draw the image counter at the bottom of the viewer
+                        imgui.pop_font()
+                        imgui.push_font(imgui.fonts.bold)
+                        counter = f"{self.fullscreen_viewer_i + 1} / {images_count}"
+                        counter_size = imgui.calc_text_size(counter)
+                        padding = self.scaled(8)
+                        counter_x = (size.x - counter_size.x) / 2
+                        counter_y = size.y - margin - counter_size.y
+                        draw_list.add_rect_filled(
+                            counter_x - padding * 1.5, counter_y - padding,
+                            counter_x + counter_size.x + padding * 1.5, counter_y + counter_size.y + padding,
+                            imgui.get_color_u32_rgba(0, 0, 0, 0.5), rounding=counter_size.y / 2 + padding,
+                        )
+                        draw_list.add_text(counter_x, counter_y, imgui.get_color_u32_rgba(*globals.settings.style_text), counter)
+                        imgui.pop_font()
+
+                    if image_clicked and not nav_clicked:
                         imgui.close_current_popup()
                         fullscreen_viewer_closed = True
                     imgui.end_popup()
