@@ -2,6 +2,7 @@ import dataclasses
 import datetime as dt
 import functools
 import json
+import logging
 import re
 
 from lxml import etree
@@ -13,6 +14,8 @@ from common.structs import (
     Type,
 )
 from external import error
+
+logger = logging.getLogger(__name__)
 
 html = functools.partial(bs4.BeautifulSoup, features="lxml")
 _html = html
@@ -529,7 +532,7 @@ developer_remove_patterns = [
 ]
 
 
-def reviews(res: bytes) -> ParsedReviews | ParserError:
+def reviews(res: bytes, thread_id: int | None = 0) -> ParsedReviews | ParserError:
     try:
         html = _html(res)
         body = html.find(is_class("p-body-pageContent"))
@@ -565,8 +568,14 @@ def reviews(res: bytes) -> ParsedReviews | ParserError:
                     timestamp=timestamp,
                 )
                 parsed_reviews.append(parsed_review)
-        match = re.search(r"reviews\s*\(([\d,]+)\)", html.find(is_class("tabs")).get_text(), re.M | re.I)
-        total = int(match.group(1).replace(",", ""))
+
+        total = len(parsed_reviews)
+        tmp_html = html.find(is_class("tabs"))
+        if tmp_html:
+            match = re.search(r"reviews\s*\(([\d,]+)\)", tmp_html.get_text(), re.M | re.I)
+            total = int(match.group(1).replace(",", ""))
+        else:
+            logger.warning(f"Failed to get review count for {thread_id}: html = {str(html)}, tmp_html = {str(tmp_html)}")
     except Exception:
         e = ParserError(
             message=f"Unhandled exception: {error.text()}",

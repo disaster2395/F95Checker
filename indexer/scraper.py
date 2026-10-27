@@ -160,7 +160,7 @@ async def thread(id: int) -> dict[str, str] | f95zone.IndexerError | None:
             # Some threads have reviews disabled
             reviews = parser.ParsedReviews(total=0, items=[])
         else:
-            reviews = await loop.run_in_executor(None, parser.reviews, res)
+            reviews = await loop.run_in_executor(None, parser.reviews, res, id)
             if isinstance(reviews, parser.ParserError):
                 logger.error(
                     f"Thread {id} reviews parsing failed: {reviews.message}\n{reviews.dump}"

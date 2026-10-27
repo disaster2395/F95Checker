@@ -5,7 +5,7 @@ build::indexer:
     - docker
   interruptible: true
   rules:
-    - if: '$CI_COMMIT_BRANCH == "customized"'
+    - if: '$CI_COMMIT_BRANCH == "customized" || $CI_COMMIT_BRANCH == "customized-hotfix"'
   services:
     - name: registry.nexus.blackopdev.com/docker:29.0.2-dind
       alias: docker
