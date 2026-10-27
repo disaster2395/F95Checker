@@ -30,7 +30,7 @@ build::indexer:
     - >-
       docker buildx build
       --platform linux/amd64,linux/arm64
-      --push
+      --output type=image,push=true,oci-artifact=false
       --tag "${CI_REGISTRY_IMAGE}:${IMAGE_TAG}"
       --tag "${CI_REGISTRY_IMAGE}:latest"
       --file Dockerfile
