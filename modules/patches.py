@@ -55,6 +55,9 @@ def apply():
     import shutil
     import stat
 
+    import tarfile
+    tarfile.TarFile.extraction_filter = tarfile.data_filter  # Fix path and link traversal
+
     import zipfile_deflate64 as zipfile
     def unpack_zipfile(archive, path):
         if not zipfile.is_zipfile(archive):
