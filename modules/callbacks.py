@@ -215,12 +215,18 @@ async def _launch_exe(executable: str, wrapper: str = ""):
     if utils.is_uri(executable):
         exe = executable
         cwd = None
+        is_windows_exe = False
+        is_unix_exe = False
     else:
         exe_path = pathlib.Path(executable)
         if globals.settings.default_exe_dir.get(globals.os) and not exe_path.is_absolute():
             exe_path = pathlib.Path(globals.settings.default_exe_dir.get(globals.os)) / exe_path
         exe = str(exe_path)
         cwd = exe_path.parent
+        with exe_path.open("rb") as f:
+            magic = f.read(8)
+            is_windows_exe = magic.startswith((b"MZ", b"ZM", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"))  # .exe and .msi
+            is_unix_exe = magic.startswith((b"#!", b"\x7FELF"))  # Shebang and ELF
 
     # Always give precedence to wrappers (if any), since they might open the file/uri/folder in some user-defined way, do no custom handling in this case
     if wrapper:
@@ -228,6 +234,10 @@ async def _launch_exe(executable: str, wrapper: str = ""):
             # Ensure wine.match_runner() will work
             wine.refresh()
         is_wine_wrapper = wine.is_supported() and wine.match_runner(wrapper)
+        if is_wine_wrapper and not is_windows_exe:
+            # Wine can only open Windows executables, fall back to default behavior
+            wrapper = ""
+    if wrapper:
         args = shlex.split(wrapper)
         if any("%command%" in arg for arg in args):
             args = [arg.replace("%command%", exe) for arg in args]
@@ -297,12 +307,8 @@ async def _launch_exe(executable: str, wrapper: str = ""):
         open_webpage(exe_path.as_uri())
         return
 
-    windows_exe_magics = (b"MZ", b"ZM", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1")  # .exe and .msi
-    unix_exe_magics = (b"#!", b"\x7FELF")  # Shebang and ELF
     if globals.os is Os.Windows:
-        with exe_path.open("rb") as f:
-            exe_magic = f.read(8).startswith(windows_exe_magics)
-        if exe_magic:
+        if is_windows_exe:
             # Run as executable and get PID
             try:
                 return await asyncio.create_subprocess_exec(
@@ -320,9 +326,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
     else:
         mode = exe_path.stat().st_mode
         exe_flag = not (mode & stat.S_IEXEC < stat.S_IEXEC)
-        with exe_path.open("rb") as f:
-            exe_magic = f.read(8).startswith((*unix_exe_magics, *windows_exe_magics))
-        if exe_magic and not exe_flag:
+        if (is_unix_exe or is_windows_exe) and not exe_flag:
             # Should be executable but isn't, fix it
             exe_path.chmod(mode | stat.S_IEXEC)
             exe_flag = True
@@ -333,7 +337,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
                     mode = file.stat().st_mode
                     if mode & stat.S_IEXEC < stat.S_IEXEC:
                         file.chmod(mode | stat.S_IEXEC)
-        if exe_magic and exe_flag:
+        if (is_unix_exe or is_windows_exe) and exe_flag:
             # Run as executable and get PID
             return await asyncio.create_subprocess_exec(
                 exe,

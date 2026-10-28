@@ -14,6 +14,7 @@
 - Fix private mode option for LibreWolf, Floorp, Zen, Helium (by @WillyJL)
 - Fix Donor DDL zip extraction of file permissions and symlinks (by @WillyJL)
 - Fix path/link traversal during archive extraction (by @WillyJL)
+- Ignore wine-based wrappers for non-windows exes (by @WillyJL)
 
 ## 11.2.1
 
