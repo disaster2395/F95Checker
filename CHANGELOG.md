@@ -15,6 +15,7 @@
 - Fix Donor DDL zip extraction of file permissions and symlinks (by @WillyJL)
 - Fix path/link traversal during archive extraction (by @WillyJL)
 - Ignore wine-based wrappers for non-windows exes (by @WillyJL)
+- Don't suppress exe console output to help with toubleshooting (by @WillyJL)
 
 ## 11.2.1
 

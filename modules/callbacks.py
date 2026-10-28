@@ -243,16 +243,17 @@ async def _launch_exe(executable: str, wrapper: str = ""):
             args = [arg.replace("%command%", exe) for arg in args]
         else:
             args.append(exe)
-        stderr = subprocess.DEVNULL
+        stdout = None
+        stderr = None
         if is_wine_wrapper:
             wine.ensure_prefix(wrapper)
-            error_log_file = tempfile.NamedTemporaryFile(prefix="f95checker-launch-", suffix=".log", delete=False)
-            stderr = error_log_file
+            launch_log_file = tempfile.NamedTemporaryFile(prefix="f95checker-launch-", suffix=".log", delete=False)
+            stdout = launch_log_file
+            stderr = launch_log_file
         process = await asyncio.create_subprocess_exec(
             *args,
             cwd=cwd,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
+            stdout=stdout,
             stderr=stderr
         )
         if is_wine_wrapper:
@@ -261,9 +262,9 @@ async def _launch_exe(executable: str, wrapper: str = ""):
                     code = await asyncio.wait_for(asyncio.shield(process.wait()), timeout=launch_watch_seconds)
                 except (asyncio.TimeoutError, TimeoutError):
                     code = None
-                error_log_file.close()
-                if code:
-                    error_log = pathlib.Path(error_log_file.name).read_text(errors="ignore").strip()[-10000:]
+                launch_log_file.close()
+                if code is not None:
+                    launch_log = pathlib.Path(launch_log_file.name).read_text(errors="ignore").strip()[-10000:]
                     utils.push_popup(
                         msgbox.msgbox, "Game launch error",
                         f"The launch wrapper exited with code {code}.\n",
@@ -272,12 +273,12 @@ async def _launch_exe(executable: str, wrapper: str = ""):
                             "Command:\n"
                             f"{shlex.join(args)}\n"
                             "\n"
-                            "Error log:\n"
-                            f"{error_log}"
+                            "Log:\n"
+                            f"{launch_log}"
                         ),
                     )
                 try:
-                    os.unlink(error_log_file.name)
+                    os.unlink(launch_log_file.name)
                 except OSError:
                     pass
             watcher = asyncio.create_task(watch_wrapper())
@@ -311,13 +312,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
         if is_windows_exe:
             # Run as executable and get PID
             try:
-                return await asyncio.create_subprocess_exec(
-                    exe,
-                    cwd=cwd,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+                return await asyncio.create_subprocess_exec(exe, cwd=cwd)
             except OSError:
                 pass
         else:
@@ -339,13 +334,7 @@ async def _launch_exe(executable: str, wrapper: str = ""):
                         file.chmod(mode | stat.S_IEXEC)
         if (is_unix_exe or is_windows_exe) and exe_flag:
             # Run as executable and get PID
-            return await asyncio.create_subprocess_exec(
-                exe,
-                cwd=cwd,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            return await asyncio.create_subprocess_exec(exe, cwd=cwd, env=os.environ | env)
         else:
             # Open with default app
             await default_open(exe, cwd=cwd)
