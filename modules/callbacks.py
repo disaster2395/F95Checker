@@ -325,13 +325,35 @@ async def _launch_exe(executable: str, wrapper: str = ""):
             # Should be executable but isn't, fix it
             exe_path.chmod(mode | stat.S_IEXEC)
             exe_flag = True
+        env = {}
+
+        # RenPy babysitting
         if (exe_path.parent / "renpy").is_dir():
-            # Make all needed renpy libs executable
+            # Make all needed RenPy libs executable
             for file in (exe_path.parent / "lib").glob("py?-*/**/*"):
                 if file.is_file():
                     mode = file.stat().st_mode
                     if mode & stat.S_IEXEC < stat.S_IEXEC:
                         file.chmod(mode | stat.S_IEXEC)
+            # Decide whether to really launch it in native Wayland
+            if globals.gui.glfw_platform == glfw.PLATFORM_WAYLAND:
+                force_x11 = False
+                if (vc_version_py := exe_path.parent / "renpy/vc_version.py").is_file():
+                    vc_version_raw = vc_version_py.read_bytes()
+                    # RenPy 7.6.0/8.1.0 and later do not have "vc_version = ", they instead store "version = "
+                    # Versions prior to this have spotty Wayland support, especially between 7.5.0/8.0.0 and 7.6.0/8.1.0 which entirely disabled it for no reason
+                    # Rather than trying to parse 4 different ways RenPy stored versions over the years to get a version number, this check is sufficient
+                    if b"vc_version = " in vc_version_raw:
+                        force_x11 = True
+                # As of writing, no RenPy release supports libdecor, so launching under native Wayland in a
+                # compositor without decoration manager protocol will give no decorations
+                if "zxdg_decoration_manager_v1" not in globals.gui.wayland_protocols:
+                    force_x11 = True
+                if force_x11:
+                    env["XDG_SESSION_TYPE"] = "x11"
+                    env["SDL_VIDEODRIVER"] = "x11"
+                    env["QT_QPA_PLATFORM"] = "xcb"
+
         if (is_unix_exe or is_windows_exe) and exe_flag:
             # Run as executable and get PID
             return await asyncio.create_subprocess_exec(exe, cwd=cwd, env=os.environ | env)

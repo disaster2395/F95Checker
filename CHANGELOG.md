@@ -16,6 +16,7 @@
 - Fix path/link traversal during archive extraction (by @WillyJL)
 - Ignore wine-based wrappers for non-windows exes (by @WillyJL)
 - Don't suppress exe console output to help with toubleshooting (by @WillyJL)
+- Workaround Renpy's questionable Wayland support (by @WillyJL)
 
 ## 11.2.1
 
