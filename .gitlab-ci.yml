@@ -49,6 +49,7 @@ build::linux:
   before_script:
     - if [ ! -d "venv" ]; then python -m venv venv; echo venv was created; else echo venv exist, skip creation; fi
   script:
+    - apt-get update && apt-get install -y --no-install-recommends libwayland-dev wayland-protocols
     - source venv/bin/activate
     - pip install -r requirements-dev.txt $PIP_OPTS
     - python setup.py build
