@@ -11,6 +11,7 @@ from external import error
 from indexer import (
     cache,
     f95zone,
+    recache,
 )
 
 WATCH_UPDATES_INTERVAL = dt.timedelta(minutes=5).total_seconds()
@@ -45,6 +46,7 @@ async def poll_updates():
         logger.info("Poll updates start")
 
         invalidate_cache = cache.redis.pipeline()
+        refresh_names = set()
 
         for category in WATCH_UPDATES_CATEGORIES:
             for page in range(1, WATCH_UPDATES_PAGES + 1):
@@ -125,6 +127,7 @@ async def poll_updates():
                     if version_outdated or meta_outdated:
                         invalidate_cache.hdel(name, cache.LAST_CACHED)
                         invalidate_cache.hset(name, cache.HASHED_META, meta)
+                        refresh_names.add(name)
                         logger.info(
                             f"Updates: Invalidating cache for {name}"
                             + (
@@ -139,6 +142,7 @@ async def poll_updates():
             # Skip every 2nd result, those are setting HASHED_META
             invalidated = sum(ret != "0" for ret in result[::2])
             logger.info(f"Updates: Invalidated cache for {invalidated} threads")
+            recache.enqueue(refresh_names)
 
         logger.info("Poll updates done")
 
@@ -176,6 +180,7 @@ async def poll_versions():
 
         names = [n async for n in cache.redis.scan_iter("thread:*", 10000, "hash")]
         invalidate_cache = cache.redis.pipeline()
+        refresh_names = set()
 
         for names_chunk in chunks(names, WATCH_VERSIONS_CHUNK_SIZE):
             cached_data = cache.redis.pipeline()
@@ -230,6 +235,7 @@ async def poll_versions():
 
                 if version != cached_version:
                     invalidate_cache.hdel(name, cache.LAST_CACHED)
+                    refresh_names.add(name)
                     logger.warning(
                         f"Versions: Invalidating cache for {name}"
                         f" ({cached_version!r} -> {version!r})"
@@ -239,6 +245,7 @@ async def poll_versions():
             result = await invalidate_cache.execute()
             invalidated = sum(ret != "0" for ret in result)
             logger.warning(f"Versions: Invalidated cache for {invalidated} threads")
+            recache.enqueue(refresh_names)
 
         logger.info("Poll versions done")
 

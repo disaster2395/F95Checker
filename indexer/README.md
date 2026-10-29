@@ -255,3 +255,25 @@ Custom ACL usernames require a Redis server with that user configured; the
 bundled Compose service uses the `default` user.
 The Docker build includes only the indexer and its required source files,
 not environment files or credentials.
+
+## Background cache refresh
+
+Both update watchers enqueue existing threads after invalidating their cache.
+A separate async worker refreshes them without making the polling tasks wait for
+scraping. Duplicate queued IDs are coalesced, and watcher updates take priority
+over periodic expired-cache work. Refreshes share the API's per-thread locks,
+freshness checks and error retry deadlines.
+
+The indexer also scans existing cached threads at startup and periodically,
+refreshing only expired or invalidated entries. Set `CACHE_REFRESH_INTERVAL`
+to a positive integer number of seconds (default `86400`, one day).
+Both Compose variants pass this setting through. This is the scan interval,
+not the cache TTL: successful data still uses the existing seven-day TTL
+(two days when relying on a parsed thread version).
+
+On a version change, the forum's parsed update date is used when it is positive,
+not older than the cached date and not beyond today's UTC date. Otherwise the
+indexer uses today's date. Dates are normalized to UTC noon, so today's noon
+is accepted even before noon. Without a version change, the previous update
+date is preserved. `LAST_CHANGE` remains the time the cache change was recorded
+for client update detection.

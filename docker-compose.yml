@@ -18,6 +18,7 @@ services:
       REDIS_PORT: "6379"
       REDIS_USERNAME: default
       REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      CACHE_REFRESH_INTERVAL: "${CACHE_REFRESH_INTERVAL:-86400}"
     ports:
       - "${BIND_PORT:-8069}:8069"
     depends_on:

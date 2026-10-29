@@ -184,8 +184,10 @@ async def _update_thread_cache(id: int, name: str) -> None:
             and old_fields.get("version")
             and (new_fields["version"] != old_fields["version"])
         ):
-            # Version changed, use today as last updated date
-            new_fields["last_updated"] = str(parser.datestamp(now))
+            # Version changed, prefer a plausible forum date, otherwise use today
+            new_fields["last_updated"] = _version_updated_date(
+                str(new_fields.get("last_updated", "")), old_fields.get("last_updated", ""), now
+            )
         elif old_fields.get("last_updated"):
             # Was previously cached and version didn't change, keep previous date
             new_fields["last_updated"] = old_fields["last_updated"]
@@ -205,3 +207,15 @@ async def _update_thread_cache(id: int, name: str) -> None:
     if LAST_CHANGE not in old_fields and LAST_CHANGE not in new_fields:
         new_fields[LAST_CHANGE] = int(now)
     await redis.hmset(name, new_fields)
+
+
+def _version_updated_date(forum_date: str, cached_date: str, now: float) -> str:
+    """Keep a forum date within the cached date and today's normalized UTC date."""
+    today = parser.datestamp(now)
+    try:
+        updated = int(forum_date)
+    except ValueError:
+        return str(today)
+    if 0 < updated <= today and updated >= int(cached_date or 0):
+        return str(updated)
+    return str(today)

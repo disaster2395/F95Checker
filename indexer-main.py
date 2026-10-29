@@ -11,6 +11,7 @@ import uvicorn
 from indexer import (
     cache,
     f95zone,
+    recache,
     threads,
     watcher,
 )
@@ -23,6 +24,7 @@ async def lifespan(app: fastapi.FastAPI):
     async with (
         cache.lifespan(),
         f95zone.lifespan(),
+        recache.lifespan(),
         watcher.lifespan(),
     ):
         yield
