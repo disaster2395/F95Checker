@@ -575,7 +575,7 @@ def reviews(res: bytes, thread_id: int | None = 0) -> ParsedReviews | ParserErro
             match = re.search(r"reviews\s*\(([\d,]+)\)", tmp_html.get_text(), re.M | re.I)
             total = int(match.group(1).replace(",", ""))
         else:
-            logger.warning(f"Failed to get review count for {thread_id}: html = {str(html)}, tmp_html = {str(tmp_html)}")
+            logger.warning(f"Failed to get review count for {thread_id}")
     except Exception:
         e = ParserError(
             message=f"Unhandled exception: {error.text()}",
