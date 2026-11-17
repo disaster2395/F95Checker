@@ -18,7 +18,7 @@ WATCH_UPDATES_INTERVAL = dt.timedelta(minutes=5).total_seconds()
 WATCH_UPDATES_CATEGORIES = f95zone.LATEST_UPDATES_CATEGORIES
 WATCH_UPDATES_PAGES = 4
 WATCH_VERSIONS_INTERVAL = dt.timedelta(hours=12).total_seconds()
-WATCH_VERSIONS_CHUNK_SIZE = 1000
+WATCH_VERSIONS_CHUNK_SIZE = 100
 
 logger = logging.getLogger(__name__)
 
